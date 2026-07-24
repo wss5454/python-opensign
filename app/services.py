@@ -13,6 +13,13 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.config import settings
 from app.database import AuditEvent, Document, Signer, SignerWidget, User, utcnow
+from app.mail import (
+    MailError,
+    document_url_for,
+    resolve_base_url,
+    send_signature_request,
+    sign_url_for,
+)
 
 
 def generate_token() -> str:
@@ -318,7 +325,71 @@ def create_document(
     return doc
 
 
-def send_document(db: Session, document: Document, ip_address: Optional[str] = None) -> Document:
+def _signers_to_email(document: Document) -> List[Signer]:
+    """Who should receive a signature email right now."""
+    actionable = [
+        s for s in document.signers if s.role in ("signer", "approver") and s.status not in ("signed", "declined")
+    ]
+    if not actionable:
+        return []
+    if document.sequential:
+        active = get_active_signer(document)
+        return [active] if active else []
+    return sorted(actionable, key=lambda s: s.order_index)
+
+
+def email_signature_requests(
+    db: Session,
+    document: Document,
+    signers: Sequence[Signer],
+    *,
+    base_url: Optional[str] = None,
+) -> None:
+    """Send signature-request emails. No-op when mail is disabled."""
+    if not settings.mail_enabled or not signers:
+        return
+
+    base = resolve_base_url(base_url)
+    doc_url = document_url_for(document.public_token, base)
+    errors: List[str] = []
+
+    for signer in signers:
+        try:
+            send_signature_request(
+                signer_name=signer.name,
+                signer_email=signer.email,
+                document_title=document.title,
+                sign_url=sign_url_for(signer.access_token, base),
+                document_url=doc_url,
+            )
+            add_audit(
+                db,
+                document.id,
+                "email_sent",
+                f"Signature request emailed to {signer.name} ({signer.email})",
+                signer_id=signer.id,
+            )
+        except MailError as exc:
+            errors.append(str(exc))
+            add_audit(
+                db,
+                document.id,
+                "email_failed",
+                f"Failed to email {signer.name} ({signer.email}): {exc}",
+                signer_id=signer.id,
+            )
+
+    db.commit()
+    if errors:
+        raise MailError("; ".join(errors))
+
+
+def send_document(
+    db: Session,
+    document: Document,
+    ip_address: Optional[str] = None,
+    base_url: Optional[str] = None,
+) -> Document:
     if document.status not in ("draft", "voided"):
         raise ValueError("Document cannot be sent in its current status")
     if not document.signers:
@@ -342,6 +413,14 @@ def send_document(db: Session, document: Document, ip_address: Optional[str] = N
     )
     db.commit()
     db.refresh(document)
+
+    email_signature_requests(
+        db,
+        document,
+        _signers_to_email(document),
+        base_url=base_url,
+    )
+    db.refresh(document)
     return document
 
 
@@ -356,6 +435,7 @@ def create_and_send_document(
     file_content: bytes,
     signers: List[dict],
     ip_address: Optional[str] = None,
+    base_url: Optional[str] = None,
 ) -> Document:
     """Create a document and immediately move it to sent status."""
     doc = create_document(
@@ -378,7 +458,7 @@ def create_and_send_document(
         .filter(Document.id == doc.id)
         .first()
     )
-    return send_document(db, doc, ip_address=ip_address)
+    return send_document(db, doc, ip_address=ip_address, base_url=base_url)
 
 
 def void_document(db: Session, document: Document, ip_address: Optional[str] = None) -> Document:
@@ -488,6 +568,7 @@ def sign_document(
     signatures: List[dict],
     ip_address: Optional[str] = None,
     legacy_signature_data: Optional[str] = None,
+    base_url: Optional[str] = None,
 ) -> Document:
     if not can_signer_act(document, signer):
         raise ValueError("Signer is not allowed to sign this document yet")
@@ -553,6 +634,20 @@ def sign_document(
     document.updated_at = utcnow()
     db.commit()
     db.refresh(document)
+
+    # For sequential workflows, invite the next signer after this one finishes.
+    if not all_signed and document.sequential:
+        try:
+            email_signature_requests(
+                db,
+                document,
+                _signers_to_email(document),
+                base_url=base_url,
+            )
+        except MailError:
+            # Signing already succeeded; email failure is audited separately.
+            pass
+
     return document
 
 

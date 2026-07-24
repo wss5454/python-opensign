@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 from app import services
 from app.config import settings
 from app.database import Document, Signer, get_db
+from app.mail import MailError
 from app.schemas import (
     AuditEventOut,
     DocumentListItem,
@@ -273,7 +274,8 @@ async def create_document(
     summary="Create document and send",
     description=(
         "Upload a PDF, create the document, and immediately set status to **sent** "
-        "in a single request. Same multipart fields as create-document, including widgets "
+        "in a single request. Emails signing links when mail is enabled. "
+        "Same multipart fields as create-document, including widgets "
         "inside `signers_json`. No auth cookie required.\n\n"
         + SIGNERS_JSON_HELP
     ),
@@ -307,9 +309,15 @@ async def create_and_send_document(
             file_content=content,
             signers=signers,
             ip_address=_client_ip(request),
+            base_url=_base(request),
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except MailError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Document created but email failed: {exc}",
+        ) from exc
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -346,7 +354,10 @@ def get_document_by_token(public_token: str, request: Request, db: Session = Dep
     "/documents/{document_id}/send",
     response_model=DocumentOut,
     summary="Send existing document",
-    description="Move a draft (or voided) document to **sent** status so signers can open their links.",
+    description=(
+        "Move a draft (or voided) document to **sent** status and email each "
+        "signer their unique signing link (when mail is enabled)."
+    ),
 )
 def send_document(
     document_id: int,
@@ -357,9 +368,19 @@ def send_document(
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     try:
-        doc = services.send_document(db, doc, ip_address=_client_ip(request))
+        doc = services.send_document(
+            db,
+            doc,
+            ip_address=_client_ip(request),
+            base_url=_base(request),
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except MailError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Document marked sent but email failed: {exc}",
+        ) from exc
     return _document_out(doc, request)
 
 
@@ -468,6 +489,7 @@ async def submit_signature(
             signatures,
             ip_address=_client_ip(request),
             legacy_signature_data=payload.signature_data,
+            base_url=_base(request),
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

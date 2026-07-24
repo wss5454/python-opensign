@@ -45,6 +45,21 @@ class Settings(BaseSettings):
     signed_dir: Path = storage_dir / "signed"
     signatures_dir: Path = storage_dir / "signatures"
 
+    # Public URL used in signature emails (no trailing slash).
+    # Example: https://sign.wallace1.com
+    public_base_url: str = ""
+
+    # Outgoing mail (Bluehost: mail.wallace1.com:465 SSL)
+    mail_enabled: bool = False
+    smtp_host: str = ""
+    smtp_port: int = 465
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_use_ssl: bool = True
+    smtp_use_tls: bool = False
+    mail_from: str = "office@wallace1.com"
+    mail_from_name: str = "Wallace"
+
     def resolved_database_url(self) -> str:
         if self.database_url.strip():
             return self.database_url.strip()

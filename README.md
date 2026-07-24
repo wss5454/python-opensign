@@ -12,6 +12,7 @@ E-signature platform with **MySQL/SQLite**, per-document URLs, per-signer sign U
 - Multi-signer roles: `signer`, `approver`, `viewer`
 - Optional sequential signing + audit trail
 - Admin login
+- Email signature requests via SMTP (Bluehost-compatible)
 
 ## Database mode
 
@@ -133,3 +134,35 @@ On the signer’s page, a canvas is drawn exactly over each widget so they sign 
 | `WALLACESIGN_MYSQL_DATABASE` | `wallacesign` | MySQL database |
 | `WALLACESIGN_PORT` | `8000` | HTTP port |
 | `WALLACESIGN_SECRET_KEY` | (dev value) | Session signing secret |
+| `WALLACESIGN_PUBLIC_BASE_URL` | _(empty)_ | Public app URL used in email links (e.g. `https://sign.wallace1.com`) |
+| `WALLACESIGN_MAIL_ENABLED` | `false` | Set `true` to email signers when a document is sent |
+| `WALLACESIGN_SMTP_HOST` | _(empty)_ | SMTP host (Bluehost: `mail.wallace1.com`) |
+| `WALLACESIGN_SMTP_PORT` | `465` | SMTP port (`465` SSL or `587` TLS) |
+| `WALLACESIGN_SMTP_USE_SSL` | `true` | Use SMTP_SSL (port 465) |
+| `WALLACESIGN_SMTP_USE_TLS` | `false` | Use STARTTLS (port 587) |
+| `WALLACESIGN_SMTP_USER` | _(empty)_ | SMTP username (full email address) |
+| `WALLACESIGN_SMTP_PASSWORD` | _(empty)_ | Email account password |
+| `WALLACESIGN_MAIL_FROM` | `office@wallace1.com` | From address |
+| `WALLACESIGN_MAIL_FROM_NAME` | `Wallace` | From display name |
+
+## Email (signature links)
+
+When `WALLACESIGN_MAIL_ENABLED=true`, sending a document emails each signer a unique `/sign/{token}` link from `office@wallace1.com` (or your configured from address).
+
+For sequential documents, only the current signer is emailed; the next signer is emailed after the previous one completes.
+
+Bluehost example:
+
+```env
+WALLACESIGN_MAIL_ENABLED=true
+WALLACESIGN_PUBLIC_BASE_URL=https://your-app-host
+WALLACESIGN_SMTP_HOST=mail.wallace1.com
+WALLACESIGN_SMTP_PORT=465
+WALLACESIGN_SMTP_USE_SSL=true
+WALLACESIGN_SMTP_USER=office@wallace1.com
+WALLACESIGN_SMTP_PASSWORD=your-email-account-password
+WALLACESIGN_MAIL_FROM=office@wallace1.com
+WALLACESIGN_MAIL_FROM_NAME=Wallace
+```
+
+Copy `.env.example` to `.env` and fill in the mailbox password. Restart the app after changing env vars.
