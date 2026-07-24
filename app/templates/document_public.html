@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ document.title }} — {{ app_name }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head">
+    <h1>{{ document.title }}</h1>
+    <p class="muted">{{ document.description or document.filename }}</p>
+    <p>
+      <span class="badge status-{{ document.status }}">{{ document.status.replace('_', ' ') }}</span>
+      <a class="btn btn-ghost" href="/api/d/{{ document.public_token }}/file" target="_blank">Download PDF</a>
+    </p>
+    <p class="muted">Document URL: <a href="{{ document_url }}">{{ document_url }}</a></p>
+  </div>
+
+  <h2>Signers</h2>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Status</th>
+        <th>Widgets</th>
+        <th>Sign URL</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in document.signers %}
+      <tr>
+        <td>
+          <strong>{{ s.name }}</strong>
+          <div class="muted">{{ s.email }} · {{ s.role }}</div>
+        </td>
+        <td><span class="badge status-{{ s.status }}">{{ s.status }}</span></td>
+        <td>{{ s.widgets|length }} location(s)</td>
+        <td>
+          {% if document.status != 'draft' and s.role != 'viewer' %}
+          <a class="link" href="/sign/{{ s.access_token }}">Open sign link</a>
+          {% else %}
+          <span class="muted">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

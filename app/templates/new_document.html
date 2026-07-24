@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}New Document — {{ app_name }}{% endblock %}
+{% block content %}
+<section class="card-panel" style="max-width:720px;margin:0 auto;">
+  <div class="panel-head">
+    <h1>Request signatures</h1>
+    <p class="muted">Upload a PDF, add signers, and assign signature widget locations.</p>
+  </div>
+
+  <form id="create-form" class="form">
+    <label>
+      Title
+      <input type="text" name="title" required placeholder="Employment Agreement" />
+    </label>
+    <label>
+      Description
+      <textarea name="description" rows="2" placeholder="Optional notes"></textarea>
+    </label>
+    <label>
+      PDF file
+      <input type="file" name="file" accept="application/pdf,.pdf" required />
+    </label>
+    <label class="checkbox">
+      <input type="checkbox" name="sequential" />
+      Require signers to sign in order
+    </label>
+
+    <fieldset>
+      <legend>Signers &amp; widgets</legend>
+      <div id="signers"></div>
+      <button type="button" class="btn btn-ghost" id="add-signer">+ Add signer</button>
+      <p class="muted hint">
+        Each signer gets an ordered signature slot automatically (2 columns, bottom of page).
+        Slots never overlap. Signer #1 → first slot, #2 → next free slot, and so on.
+      </p>
+    </fieldset>
+
+    <div class="actions">
+      <a class="btn btn-ghost" href="/">Cancel</a>
+      <button type="submit" class="btn btn-primary">Create draft</button>
+    </div>
+    <p id="form-error" class="error" hidden></p>
+  </form>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/new_document.js"></script>
+{% endblock %}

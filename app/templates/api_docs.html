@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}API Docs — {{ app_name }}{% endblock %}
+{% block body_class %}page-api-docs{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css" />
+{% endblock %}
+{% block content %}
+<section class="card-panel api-docs-panel">
+  <div class="card-panel-head">
+    <div>
+      <h2>API documentation</h2>
+      <p class="muted" style="margin:0.25rem 0 0;">
+        Interactive OpenAPI reference for {{ app_name }} endpoints.
+        Live events: connect to <code>ws://&lt;host&gt;/ws</code> for
+        <code>document.finished</code> (includes <code>document_id</code>).
+      </p>
+    </div>
+    <div class="actions">
+      <a class="btn btn-ghost" href="/openapi.json" target="_blank">OpenAPI JSON</a>
+      <a class="btn btn-primary" href="/docs" target="_blank">Open Swagger UI</a>
+    </div>
+  </div>
+
+  <div id="swagger-ui" class="api-docs-swagger"></div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js" crossorigin></script>
+<script>
+  window.ui = SwaggerUIBundle({
+    url: "/openapi.json",
+    dom_id: "#swagger-ui",
+    deepLinking: true,
+    docExpansion: "list",
+    defaultModelsExpandDepth: 1,
+    tryItOutEnabled: true,
+    persistAuthorization: true,
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Admin login — {{ app_name }}{% endblock %}
+{% block body_class %}login-page{% endblock %}
+{% block content %}
+<section class="login-wrap">
+  <div class="card-panel login-card">
+    <div class="login-brand">
+      <span class="brand-mark lg">WS</span>
+      <h1>{{ app_name }}</h1>
+      <p class="muted">Sign in to manage documents and signature requests.</p>
+    </div>
+    <form method="post" action="/login" class="form">
+      <input type="hidden" name="next" value="{{ next or '/' }}" />
+      <label>
+        Email
+        <input type="email" name="email" required value="{{ email or '' }}" autocomplete="username" placeholder="admin@wallacesign.local" />
+      </label>
+      <label>
+        Password
+        <input type="password" name="password" required autocomplete="current-password" placeholder="••••••••" />
+      </label>
+      {% if error %}
+      <p class="error">{{ error }}</p>
+      {% endif %}
+      <button type="submit" class="btn btn-primary btn-block">Sign in</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

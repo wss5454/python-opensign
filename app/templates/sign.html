@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% block title %}Sign — {{ document.title }}{% endblock %}
+{% block head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Great+Vibes&family=Pacifico&family=Satisfy&family=Allura&display=swap" rel="stylesheet" />
+{% endblock %}
+{% block content %}
+
+<header class="sw-header">
+  <div class="sw-header-left">
+    <button type="button" class="sw-icon-btn" id="sw-menu-btn" aria-label="Menu">☰</button>
+    <a class="sw-brand" href="#">
+      <span class="sw-logo">WS</span>
+      <span>
+        <strong>{{ app_name }}</strong>
+        <small>Seal the Deal, Openly</small>
+      </span>
+    </a>
+  </div>
+  <div class="sw-header-right">
+    <div class="sw-user">
+      <div class="avatar sm">{{ signer.name[0]|upper }}</div>
+      <span>{{ signer.name }}</span>
+    </div>
+  </div>
+</header>
+
+{% if signer.status == 'signed' %}
+<section class="sw-message">
+  <div class="card-panel" style="max-width:560px;margin:2rem auto;text-align:center;">
+    <h1>Already signed</h1>
+    <p class="muted">Thank you. Your signature was recorded{% if signer.signed_at %} at {{ signer.signed_at.strftime('%Y-%m-%d %H:%M UTC') }}{% endif %}.</p>
+    <a class="btn btn-primary" href="{{ pdf_url }}" target="_blank">Download PDF</a>
+  </div>
+</section>
+{% elif signer.status == 'declined' %}
+<section class="sw-message">
+  <div class="card-panel" style="max-width:560px;margin:2rem auto;text-align:center;">
+    <h1>You declined</h1>
+    <p class="muted">You declined to sign this document.</p>
+  </div>
+</section>
+{% elif not can_sign %}
+<section class="sw-message">
+  <div class="card-panel" style="max-width:560px;margin:2rem auto;text-align:center;">
+    <h1>Waiting your turn</h1>
+    <p class="muted">This document requires sequential signing. You can sign after previous signers finish.</p>
+  </div>
+</section>
+{% else %}
+
+<div class="sw-shell" id="sign-shell" data-locked="true">
+  <aside class="sw-pages">
+    <h3>Pages</h3>
+    <div id="page-thumbs" class="sw-thumbs"></div>
+  </aside>
+
+  <section class="sw-viewer">
+    <div class="sw-toolbar">
+      <div class="sw-page-indicator">
+        <button type="button" class="sw-mini" id="prev-page">‹</button>
+        <span id="page-label">1 of 1</span>
+        <button type="button" class="sw-mini" id="next-page">›</button>
+      </div>
+      <div class="sw-toolbar-actions">
+        <button type="button" class="btn btn-ghost" id="decline-btn" data-token="{{ token }}">Decline</button>
+        <a class="btn btn-ghost" href="{{ pdf_url }}" target="_blank">Download</a>
+        <button type="button" class="btn btn-primary" id="finish-btn">Finish</button>
+      </div>
+    </div>
+
+    <div class="sw-stage-wrap">
+      <div class="sw-zoom">
+        <button type="button" class="sw-zoom-btn" id="zoom-in" title="Zoom in">+</button>
+        <button type="button" class="sw-zoom-btn" id="zoom-out" title="Zoom out">−</button>
+      </div>
+      <script type="application/json" id="widgets-data">{{ widgets_json | safe }}</script>
+      <div id="pdf-viewer"
+           class="sw-pdf-viewer"
+           data-token="{{ token }}"
+           data-pdf-url="{{ pdf_url }}"
+           data-signer-name="{{ signer.name }}"></div>
+    </div>
+    <p id="sign-error" class="error sw-error" hidden></p>
+  </section>
+
+  <aside class="sw-signers">
+    <h3>Yet to sign <span class="sw-info" title="People who still need to sign">i</span></h3>
+    <div class="sw-signer-list">
+      {% set colors = ['blue', 'rose', 'green', 'amber', 'violet'] %}
+      {% for s in all_signers %}
+        {% if s.role != 'viewer' and s.status != 'signed' %}
+        <div class="sw-signer-card {{ colors[loop.index0 % 5] }} {% if s.id == signer.id %}current{% endif %}">
+          <div class="sw-signer-avatar">{{ s.name[0]|upper }}</div>
+          <div>
+            <div class="sw-signer-name">{{ s.name }}</div>
+            <div class="sw-signer-email">{{ s.email }}</div>
+          </div>
+        </div>
+        {% endif %}
+      {% endfor %}
+      {% set pending = namespace(n=0) %}
+      {% for s in all_signers %}
+        {% if s.role != 'viewer' and s.status != 'signed' %}{% set pending.n = pending.n + 1 %}{% endif %}
+      {% endfor %}
+      {% if pending.n == 0 %}
+      <p class="muted">Everyone has signed.</p>
+      {% endif %}
+    </div>
+  </aside>
+</div>
+
+<div id="toast-root" class="sw-toast-root" aria-live="polite"></div>
+
+<div id="decline-dialog" class="sw-dialog" hidden>
+  <div class="sw-dialog-backdrop" data-decline-cancel></div>
+  <div class="sw-dialog-card" role="dialog" aria-modal="true" aria-labelledby="decline-title">
+    <h2 id="decline-title">Decline to sign?</h2>
+    <p class="muted">Are you sure you want to decline this document? The sender will be notified and the request will be voided.</p>
+    <div class="sw-dialog-actions">
+      <button type="button" class="btn btn-ghost" id="decline-cancel" data-decline-cancel>Cancel</button>
+      <button type="button" class="btn btn-danger" id="decline-confirm">Decline</button>
+    </div>
+  </div>
+</div>
+
+{# Consent disclosure modal #}
+<div id="consent-modal" class="sw-consent">
+  <div class="sw-consent-card">
+    <p>
+      I confirm that I have read and understood the
+      <a href="#" id="disclosure-link">Electronic Record and Signature Disclosure</a>
+      and consent to use electronic records and signatures.
+    </p>
+    <button type="button" class="btn btn-primary btn-block" id="consent-continue">
+      I confirm &amp; agree to continue
+    </button>
+    <p class="sw-consent-note">
+      Note: Agreeing to this does not mean you are signing the document immediately.
+      This only allows you to review the document electronically. You will have the
+      opportunity to read it in full and decide whether to sign it afterward.
+    </p>
+  </div>
+</div>
+
+{# Signature draw/type/upload modal #}
+<div id="sign-modal" class="sign-modal" hidden>
+  <div class="sign-modal-backdrop" data-close-modal></div>
+  <div class="sign-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="sign-modal-title">
+    <div class="sign-modal-header">
+      <h2 id="sign-modal-title">Add signature</h2>
+      <button type="button" class="sign-modal-close" data-close-modal aria-label="Close">&times;</button>
+    </div>
+    <div class="sign-modal-tabs" role="tablist">
+      <button type="button" class="sign-tab active" data-tab="draw">Draw</button>
+      <button type="button" class="sign-tab" data-tab="type">Type</button>
+      <button type="button" class="sign-tab" data-tab="upload">Upload</button>
+    </div>
+    <div class="sign-modal-body">
+      <div class="sign-tab-panel active" data-panel="draw">
+        <canvas id="modal-draw-canvas" width="640" height="220"></canvas>
+        <div class="actions">
+          <button type="button" class="btn btn-ghost" id="modal-draw-clear">Clear</button>
+        </div>
+      </div>
+      <div class="sign-tab-panel" data-panel="type" hidden>
+        <label>
+          Your name
+          <input type="text" id="modal-type-text" value="{{ signer.name }}" maxlength="80" />
+        </label>
+        <p class="muted">Choose a font style</p>
+        <div id="font-style-list" class="font-style-list"></div>
+      </div>
+      <div class="sign-tab-panel" data-panel="upload" hidden>
+        <label class="upload-drop">
+          <input type="file" id="modal-upload-input" accept="image/png,image/jpeg,image/webp,image/gif" />
+          <span>Click to choose an image (PNG, JPG, WEBP)</span>
+        </label>
+        <div class="upload-preview-wrap">
+          <img id="modal-upload-preview" alt="Upload preview" hidden />
+        </div>
+      </div>
+    </div>
+    <div class="sign-modal-footer">
+      <p id="modal-error" class="error" hidden></p>
+      <div class="actions">
+        <button type="button" class="btn btn-ghost" data-close-modal>Cancel</button>
+        <button type="button" class="btn btn-primary" id="modal-apply">Insert signature</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="disclosure-modal" class="sign-modal" hidden>
+  <div class="sign-modal-backdrop" data-close-disclosure></div>
+  <div class="sign-modal-dialog">
+    <div class="sign-modal-header">
+      <h2>Electronic Record and Signature Disclosure</h2>
+      <button type="button" class="sign-modal-close" data-close-disclosure aria-label="Close">&times;</button>
+    </div>
+    <div class="sign-modal-body">
+      <p>By using {{ app_name }}, you agree that your electronic signature is the legal equivalent of your handwritten signature. You consent to receive documents electronically and to sign them using electronic means.</p>
+      <p>You may download a copy of documents for your records. If you decline, you may need to complete the transaction by other means arranged with the sender.</p>
+    </div>
+    <div class="sign-modal-footer">
+      <button type="button" class="btn btn-primary" data-close-disclosure>Close</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/sign.js"></script>
+{% endblock %}

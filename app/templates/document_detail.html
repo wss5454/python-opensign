@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}{{ document.title }} — {{ app_name }}{% endblock %}
+{% block content %}
+<section class="card-panel">
+  <div class="panel-head row">
+    <div>
+      <a class="muted" href="/">← Dashboard</a>
+      <h1>{{ document.title }}</h1>
+      <p class="muted">{{ document.description or document.filename }}</p>
+      <p class="muted">
+        Document URL:
+        <a href="{{ document_url }}" target="_blank">{{ document_url }}</a>
+        <button class="btn-copy" data-url="{{ document_url }}">Copy</button>
+      </p>
+    </div>
+    <div class="actions">
+      <span class="badge status-{{ document.status }}">{{ document.status.replace('_', ' ') }}</span>
+      <a class="btn btn-ghost" href="/api/documents/{{ document.id }}/file" target="_blank">Download PDF</a>
+      {% if document.status == 'draft' %}
+      <button class="btn btn-primary" id="send-btn" data-id="{{ document.id }}">Send for signature</button>
+      {% endif %}
+      {% if document.status not in ['completed', 'voided'] %}
+      <button class="btn btn-danger" id="void-btn" data-id="{{ document.id }}">Void</button>
+      {% endif %}
+      <button class="btn btn-danger" id="delete-btn" data-id="{{ document.id }}">Delete</button>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div>
+      <h2>Signers</h2>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Widgets</th>
+            <th>Status</th>
+            <th>Sign URL</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in document.signers %}
+          <tr>
+            <td>{{ s.order_index + 1 }}</td>
+            <td>
+              <strong>{{ s.name }}</strong>
+              <div class="muted">{{ s.email }} · {{ s.role }}</div>
+            </td>
+            <td>
+              {% if s.widgets %}
+              <ul class="widget-list">
+                {% for w in s.widgets %}
+                <li>{{ w.type }} · p{{ w.page }} · ({{ w.x }},{{ w.y }}) {{ w.w }}×{{ w.h }}</li>
+                {% endfor %}
+              </ul>
+              {% else %}
+              <span class="muted">none</span>
+              {% endif %}
+            </td>
+            <td><span class="badge status-{{ s.status }}">{{ s.status }}</span></td>
+            <td>
+              {% if document.status != 'draft' %}
+              <a class="link" href="/sign/{{ s.access_token }}" target="_blank">Open</a>
+              <button class="btn-copy" data-url="{{ base_url }}/sign/{{ s.access_token }}">Copy</button>
+              {% else %}
+              <span class="muted">After send</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div>
+      <h2>Audit trail</h2>
+      <ul class="timeline">
+        {% for event in document.audit_events %}
+        <li>
+          <div class="timeline-title">{{ event.event_type }}</div>
+          <div>{{ event.message }}</div>
+          <div class="muted">{{ event.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}{% if event.ip_address %} · {{ event.ip_address }}{% endif %}</div>
+        </li>
+        {% else %}
+        <li class="muted">No events yet.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/document_detail.js"></script>
+{% endblock %}

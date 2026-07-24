@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Documents — {{ app_name }}{% endblock %}
+{% block content %}
+<section class="card-panel">
+  <div class="card-panel-head">
+    <div>
+      <h2>Documents</h2>
+      <p class="muted" style="margin:0.25rem 0 0;">All signature requests in your account.</p>
+    </div>
+    <div class="actions">
+      <label class="search-pill">
+        <span aria-hidden="true">⌕</span>
+        <input type="search" id="search-documents" placeholder="Search documents..." />
+      </label>
+      <a class="btn btn-primary" href="/documents/new">New request</a>
+    </div>
+  </div>
+
+  {% if documents %}
+  <div class="table-wrap">
+    <table class="data-table" id="documents-table">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>File</th>
+          <th>Status</th>
+          <th>Signers</th>
+          <th>Created</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for doc in documents %}
+        {% set ns = namespace(total=0, signed=0) %}
+        {% for s in doc.signers %}
+          {% if s.role in ['signer', 'approver'] %}
+            {% set ns.total = ns.total + 1 %}
+            {% if s.status == 'signed' %}{% set ns.signed = ns.signed + 1 %}{% endif %}
+          {% endif %}
+        {% endfor %}
+        <tr data-search="{{ doc.title|lower }} {{ doc.filename|lower }} {{ doc.status }}">
+          <td>
+            <a class="title-link" href="/documents/{{ doc.id }}">{{ doc.title }}</a>
+          </td>
+          <td>
+            <div>{{ doc.filename }}</div>
+            <a class="text-link" href="/api/documents/{{ doc.id }}/file" target="_blank">Download</a>
+          </td>
+          <td><span class="badge status-{{ doc.status }}">{{ doc.status.replace('_', ' ') }}</span></td>
+          <td>{{ ns.signed }}/{{ ns.total }}</td>
+          <td class="muted">{{ doc.created_at.strftime('%Y-%m-%d %H:%M') if doc.created_at else '' }}</td>
+          <td class="row-actions">
+            <a class="icon-btn navy" href="/documents/{{ doc.id }}" title="Open">✎</a>
+            <a class="icon-btn slate" href="/api/documents/{{ doc.id }}/file" target="_blank" title="View">👁</a>
+            <div class="menu">
+              <button type="button" class="icon-btn ghost menu-toggle" aria-label="More">⋮</button>
+              <div class="menu-dropdown" hidden>
+                <a href="/documents/{{ doc.id }}">Open</a>
+                <button type="button" class="danger delete-doc-btn" data-id="{{ doc.id }}" data-title="{{ doc.title }}">Delete</button>
+              </div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    No documents yet. <a href="/documents/new">Create a signature request</a>.
+  </div>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/documents.js"></script>
+{% endblock %}

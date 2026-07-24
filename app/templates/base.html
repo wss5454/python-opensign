@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}{{ app_name }}{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/style.css?v=api-docs-2" />
+  {% block head %}{% endblock %}
+</head>
+<body class="{% if sign_workspace %}sign-workspace{% elif admin %}has-admin-shell{% else %}is-public{% endif %} {% block body_class %}{% endblock %}">
+  {% if sign_workspace %}
+  {% elif admin %}
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-profile">
+        <div class="avatar">{{ (admin_name or 'A')[0]|upper }}</div>
+        <div>
+          <div class="sidebar-name">{{ admin_name or 'Admin' }}</div>
+          <div class="sidebar-email">{{ admin.email }}</div>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="/" class="nav-item {% if request.url.path == '/' %}active{% endif %}">
+          <span class="nav-icon">▣</span> Dashboard
+        </a>
+        <a href="/documents/new" class="nav-item {% if request.url.path == '/documents/new' %}active{% endif %}">
+          <span class="nav-icon">✈</span> Request signatures
+        </a>
+        <a href="/documents" class="nav-item {% if request.url.path == '/documents' or (request.url.path.startswith('/documents/') and request.url.path != '/documents/new') %}active{% endif %}">
+          <span class="nav-icon">📄</span> Documents
+        </a>
+        <a href="/api-docs" class="nav-item {% if request.url.path == '/api-docs' %}active{% endif %}">
+          <span class="nav-icon">📘</span> API Docs
+        </a>
+        <a href="/logout" class="nav-item">
+          <span class="nav-icon">⎋</span> Logout
+        </a>
+      </nav>
+      <div class="sidebar-footer">{{ app_name }}</div>
+    </aside>
+    <div class="shell-main">
+      <header class="top-header">
+        <a class="brand" href="/">
+          <span class="brand-mark">WS</span>
+          <span class="brand-text">{{ app_name }}</span>
+        </a>
+        <div class="header-right">
+          <div class="header-user">
+            <div class="avatar sm">{{ (admin_name or 'A')[0]|upper }}</div>
+            <span>{{ admin_name or admin.email }}</span>
+          </div>
+        </div>
+      </header>
+      <main class="page-content">
+  {% else %}
+  <header class="public-topbar">
+    <a class="brand" href="/login">
+      <span class="brand-mark">WS</span>
+      <span class="brand-text">{{ app_name }}</span>
+    </a>
+    {% if request.url.path != '/login' %}
+    <nav>
+      <a href="/login" class="btn btn-primary">Admin login</a>
+    </nav>
+    {% endif %}
+  </header>
+  <main class="public-content">
+  {% endif %}
+
+  {% block content %}{% endblock %}
+
+  {% if sign_workspace %}
+  {% elif admin %}
+      </main>
+    </div>
+  </div>
+  {% else %}
+  </main>
+  {% endif %}
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

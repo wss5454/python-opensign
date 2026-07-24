@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — {{ app_name }}{% endblock %}
+{% block content %}
+<section class="dash-actions">
+  <a class="action-card" href="/documents/new">
+    <div class="action-icon">✎</div>
+    <div>
+      <h3>Sign yourself</h3>
+      <p>Upload a document and place your own signature widgets.</p>
+    </div>
+  </a>
+  <a class="action-card" href="/documents/new">
+    <div class="action-icon">✈</div>
+    <div>
+      <h3>Request signatures</h3>
+      <p>Send documents to one or more signers with ordered widgets.</p>
+    </div>
+  </a>
+</section>
+
+<section class="dash-stats">
+  <div class="stat-card navy">
+    <div class="stat-top">
+      <span>Need your signature</span>
+      <span class="help" title="Documents waiting on you">?</span>
+    </div>
+    <div class="stat-value">{{ stats.need_signature }}</div>
+  </div>
+  <div class="stat-card slate">
+    <div class="stat-top">
+      <span>Out for signatures</span>
+      <span class="help" title="Documents sent to signers">?</span>
+    </div>
+    <div class="stat-value">{{ stats.out_for_signatures }}</div>
+  </div>
+</section>
+
+<section class="card-panel">
+  <div class="card-panel-head">
+    <h2>Recently sent for signatures</h2>
+    <label class="search-pill">
+      <span aria-hidden="true">⌕</span>
+      <input type="search" id="search-sent" placeholder="Search documents..." />
+    </label>
+  </div>
+  {% if sent_documents %}
+  <div class="table-wrap">
+    <table class="data-table" id="sent-table">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>File</th>
+          <th>Status</th>
+          <th>Signers</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for doc in sent_documents %}
+        {% set ns = namespace(total=0, signed=0) %}
+        {% for s in doc.signers %}
+          {% if s.role in ['signer', 'approver'] %}
+            {% set ns.total = ns.total + 1 %}
+            {% if s.status == 'signed' %}{% set ns.signed = ns.signed + 1 %}{% endif %}
+          {% endif %}
+        {% endfor %}
+        <tr data-search="{{ doc.title|lower }} {{ doc.filename|lower }}">
+          <td>
+            <a class="title-link" href="/documents/{{ doc.id }}">{{ doc.title }}</a>
+            <div class="muted">{{ doc.created_at.strftime('%Y-%m-%d') if doc.created_at else '' }}</div>
+          </td>
+          <td>
+            <div>{{ doc.filename }}</div>
+            <a class="text-link" href="/api/documents/{{ doc.id }}/file" target="_blank">Download</a>
+          </td>
+          <td><span class="badge status-{{ doc.status }}">{{ doc.status.replace('_', ' ') }}</span></td>
+          <td>{{ ns.signed }}/{{ ns.total }}</td>
+          <td class="row-actions">
+            <a class="icon-btn navy" href="/documents/{{ doc.id }}" title="Manage">✎</a>
+            <a class="icon-btn slate" href="/api/documents/{{ doc.id }}/file" target="_blank" title="View">👁</a>
+            <div class="menu">
+              <button type="button" class="icon-btn ghost menu-toggle" aria-label="More">⋮</button>
+              <div class="menu-dropdown" hidden>
+                <a href="/documents/{{ doc.id }}">Open</a>
+                <button type="button" class="danger delete-doc-btn" data-id="{{ doc.id }}" data-title="{{ doc.title }}">Delete</button>
+              </div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">No sent documents yet.</div>
+  {% endif %}
+</section>
+
+<section class="card-panel">
+  <div class="card-panel-head">
+    <h2>Drafts</h2>
+    <label class="search-pill">
+      <span aria-hidden="true">⌕</span>
+      <input type="search" id="search-drafts" placeholder="Search documents..." />
+    </label>
+  </div>
+  {% if draft_documents %}
+  <div class="table-wrap">
+    <table class="data-table" id="drafts-table">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>File</th>
+          <th>Signers</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for doc in draft_documents %}
+        <tr data-search="{{ doc.title|lower }} {{ doc.filename|lower }}">
+          <td>
+            <a class="title-link" href="/documents/{{ doc.id }}">{{ doc.title }}</a>
+            <div class="muted">{{ doc.created_at.strftime('%Y-%m-%d') if doc.created_at else '' }}</div>
+          </td>
+          <td>{{ doc.filename }}</td>
+          <td>{{ doc.signers|length }}</td>
+          <td class="row-actions">
+            <a class="icon-btn navy" href="/documents/{{ doc.id }}" title="Open">✎</a>
+            <div class="menu">
+              <button type="button" class="icon-btn ghost menu-toggle" aria-label="More">⋮</button>
+              <div class="menu-dropdown" hidden>
+                <a href="/documents/{{ doc.id }}">Open</a>
+                <button type="button" class="danger delete-doc-btn" data-id="{{ doc.id }}" data-title="{{ doc.title }}">Delete</button>
+              </div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">No drafts. <a href="/documents/new">Create a request</a>.</div>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/documents.js"></script>
+{% endblock %}
