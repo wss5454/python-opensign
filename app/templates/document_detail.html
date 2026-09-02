@@ -33,6 +33,7 @@
         <thead>
           <tr>
             <th>#</th>
+            <th>Party</th>
             <th>Name</th>
             <th>Widgets</th>
             <th>Status</th>
@@ -43,6 +44,10 @@
           {% for s in document.signers %}
           <tr>
             <td>{{ s.order_index + 1 }}</td>
+            <td>
+              {% if s.phase == 1 %}Company{% else %}Customer{% endif %}
+              {% if s.field_name %}<div class="muted">{{ s.field_name }}</div>{% endif %}
+            </td>
             <td>
               <strong>{{ s.name }}</strong>
               <div class="muted">{{ s.email }} · {{ s.role }}</div>

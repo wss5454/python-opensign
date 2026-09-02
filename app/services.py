@@ -85,7 +85,8 @@ def assign_ordered_widgets(signers: List[dict]) -> List[dict]:
 
     - Signers are processed in order_index (then list order).
     - Empty widgets → auto-assign next free slot.
-    - Provided widgets that collide with earlier ones are shifted to the next free slot.
+    - Provided widgets that collide with earlier ones are shifted to the next free slot,
+      unless they carry a field_name (AcroForm-anchored; keep the original rect).
     """
     ordered = sorted(
         enumerate(signers),
@@ -112,6 +113,7 @@ def assign_ordered_widgets(signers: List[dict]) -> List[dict]:
 
         fixed = []
         for w in widgets_in:
+            field_name = w.get("field_name") or None
             candidate = {
                 "type": w.get("type", "signature"),
                 "page": int(w.get("page", 1)),
@@ -120,17 +122,20 @@ def assign_ordered_widgets(signers: List[dict]) -> List[dict]:
                 "w": float(w["w"]),
                 "h": float(w["h"]),
             }
-            safety = 0
-            while any(_rects_overlap(candidate, p) for p in placed) and safety < 50:
-                candidate = {
-                    **slot_position(next_slot, page=int(candidate["page"])),
-                    "type": candidate["type"],
-                }
-                next_slot += 1
-                safety += 1
+            if field_name:
+                candidate["field_name"] = field_name
+            else:
+                safety = 0
+                while any(_rects_overlap(candidate, p) for p in placed) and safety < 50:
+                    candidate = {
+                        **slot_position(next_slot, page=int(candidate["page"])),
+                        "type": candidate["type"],
+                    }
+                    next_slot += 1
+                    safety += 1
+                placed.append(candidate)
+                next_slot = max(next_slot, len(placed))
             fixed.append(candidate)
-            placed.append(candidate)
-            next_slot = max(next_slot, len(placed))
         result[original_index]["widgets"] = fixed
 
     return result
@@ -296,6 +301,8 @@ def create_document(
             email=s["email"],
             role=role,
             order_index=s.get("order_index", idx),
+            phase=int(s.get("phase", 0) or 0),
+            field_name=s.get("field_name") or None,
             access_token=generate_token(),
             status="pending",
         )
@@ -316,6 +323,7 @@ def create_document(
                     y=float(w["y"]),
                     w=float(w["w"]),
                     h=float(w["h"]),
+                    field_name=w.get("field_name") or None,
                 )
             )
 
@@ -325,10 +333,31 @@ def create_document(
     return doc
 
 
+def _actionable_signers(document: Document) -> List[Signer]:
+    return [s for s in document.signers if s.role in ("signer", "approver")]
+
+
+def active_phase(document: Document) -> Optional[int]:
+    """Lowest phase that still has outstanding signer/approver rows."""
+    pending_phases = [
+        s.phase
+        for s in _actionable_signers(document)
+        if s.status not in ("signed", "declined")
+    ]
+    if not pending_phases:
+        return None
+    return min(pending_phases)
+
+
 def _signers_to_email(document: Document) -> List[Signer]:
-    """Who should receive a signature email right now."""
+    """Who should receive a signature email right now (current phase only)."""
+    current = active_phase(document)
+    if current is None:
+        return []
     actionable = [
-        s for s in document.signers if s.role in ("signer", "approver") and s.status not in ("signed", "declined")
+        s
+        for s in _actionable_signers(document)
+        if s.phase == current and s.status not in ("signed", "declined")
     ]
     if not actionable:
         return []
@@ -499,14 +528,17 @@ def delete_document(db: Session, document: Document) -> None:
 
 
 def get_active_signer(document: Document) -> Optional[Signer]:
-    if not document.sequential:
-        return None
+    current = active_phase(document)
     pending = [
         s
         for s in document.signers
-        if s.status not in ("signed", "declined") and s.role != "viewer"
+        if s.status not in ("signed", "declined")
+        and s.role != "viewer"
+        and (current is None or s.phase == current)
     ]
     if not pending:
+        return None
+    if not document.sequential:
         return None
     return sorted(pending, key=lambda s: s.order_index)[0]
 
@@ -517,6 +549,9 @@ def can_signer_act(document: Document, signer: Signer) -> bool:
     if signer.role == "viewer":
         return False
     if signer.status in ("signed", "declined"):
+        return False
+    current = active_phase(document)
+    if current is not None and signer.phase != current:
         return False
     if document.sequential:
         active = get_active_signer(document)
@@ -615,8 +650,10 @@ def sign_document(
         ip_address=ip_address,
     )
 
-    actionable = [s for s in document.signers if s.role in ("signer", "approver")]
+    actionable = _actionable_signers(document)
     all_signed = all(s.status == "signed" for s in actionable)
+    next_phase = None if all_signed else active_phase(document)
+    phase_advanced = next_phase is not None and next_phase != signer.phase
 
     if all_signed:
         document.status = "completed"
@@ -630,13 +667,21 @@ def sign_document(
         )
     else:
         document.status = "partially_signed"
+        if phase_advanced:
+            add_audit(
+                db,
+                document.id,
+                "phase_advanced",
+                f"Customer signatures complete; inviting phase {next_phase} signers",
+                ip_address=ip_address,
+            )
 
     document.updated_at = utcnow()
     db.commit()
     db.refresh(document)
 
-    # For sequential workflows, invite the next signer after this one finishes.
-    if not all_signed and document.sequential:
+    # Invite the next signer (sequential) or the next phase (company after customers).
+    if not all_signed and (document.sequential or phase_advanced):
         try:
             email_signature_requests(
                 db,

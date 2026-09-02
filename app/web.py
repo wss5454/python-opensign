@@ -231,6 +231,13 @@ def sign_page(token: str, request: Request, db: Session = Depends(get_db)):
 
     services.mark_viewed(db, signer.document, signer, ip_address=None)
     can_sign = services.can_signer_act(signer.document, signer)
+    current_phase = services.active_phase(signer.document)
+    if getattr(signer, "phase", 0) and current_phase is not None and signer.phase > current_phase:
+        wait_message = "You can sign after the customer signatures are complete."
+    elif signer.document.sequential:
+        wait_message = "This document requires sequential signing. You can sign after previous signers finish."
+    else:
+        wait_message = "You can sign after previous signers finish."
     widgets = [
         {
             "id": w.id,
@@ -252,6 +259,7 @@ def sign_page(token: str, request: Request, db: Session = Depends(get_db)):
             signer=signer,
             document=signer.document,
             can_sign=can_sign,
+            wait_message=wait_message,
             token=token,
             widgets_json=json.dumps(widgets),
             pdf_url=f"/api/documents/{signer.document.id}/file",

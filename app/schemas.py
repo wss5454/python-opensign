@@ -12,6 +12,7 @@ class WidgetCreate(BaseModel):
     y: float = Field(..., ge=0)
     w: float = Field(..., gt=0)
     h: float = Field(..., gt=0)
+    field_name: Optional[str] = Field(default=None, max_length=120)
 
 
 class WidgetOut(BaseModel):
@@ -22,6 +23,7 @@ class WidgetOut(BaseModel):
     y: float
     w: float
     h: float
+    field_name: Optional[str] = None
     has_signature: bool = False
 
     class Config:
@@ -33,6 +35,8 @@ class SignerCreate(BaseModel):
     email: EmailStr
     role: str = Field(default="signer", pattern="^(signer|viewer|approver)$")
     order_index: int = 0
+    phase: int = Field(default=0, ge=0)
+    field_name: Optional[str] = Field(default=None, max_length=120)
     widgets: List[WidgetCreate] = Field(default_factory=list)
 
 
@@ -42,6 +46,8 @@ class SignerOut(BaseModel):
     email: str
     role: str
     order_index: int
+    phase: int = 0
+    field_name: Optional[str] = None
     status: str
     access_token: str
     sign_url: Optional[str] = None

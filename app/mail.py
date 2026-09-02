@@ -121,39 +121,24 @@ def send_signature_request(
     sign_url: str,
     document_url: Optional[str] = None,
 ) -> None:
-    subject = f"Please sign: {document_title}"
-    text_lines = [
-        f"Hi {signer_name},",
-        "",
-        f'You have been asked to sign "{document_title}".',
-        "",
-        f"Open this link to review and sign:",
-        sign_url,
-    ]
-    if document_url:
-        text_lines.extend(["", f"Document status: {document_url}"])
-    text_lines.extend(
+    """Send a generic signature invitation (no document filename in the message)."""
+    del signer_name, document_title, document_url  # kept for API compatibility
+
+    subject = "Please review and sign your contract"
+    text_body = "\n".join(
         [
+            "Dear customer,",
+            "",
+            "Please review and sign your contract.",
+            "",
+            sign_url,
             "",
             "If you were not expecting this request, you can ignore this email.",
-            "",
-            f"— {settings.mail_from_name or settings.app_name}",
         ]
     )
-    text_body = "\n".join(text_lines)
 
-    safe_name = html.escape(signer_name)
-    safe_title = html.escape(document_title)
-    safe_brand = html.escape(settings.mail_from_name or settings.app_name)
     safe_sign_url = html.escape(sign_url, quote=True)
     safe_sign_url_text = html.escape(sign_url)
-    doc_status_html = ""
-    if document_url:
-        safe_doc_url = html.escape(document_url, quote=True)
-        doc_status_html = (
-            f'<p style="margin:16px 0 0;font-size:14px;color:#4b5563;">'
-            f'<a href="{safe_doc_url}" style="color:#1e3a5f;">View document status</a></p>'
-        )
     html_body = f"""\
 <!DOCTYPE html>
 <html>
@@ -163,18 +148,13 @@ def send_signature_request(
       <td align="center">
         <table role="presentation" width="560" cellspacing="0" cellpadding="0" style="background:#ffffff;border-radius:8px;padding:28px 24px;">
           <tr>
-            <td style="font-size:20px;font-weight:700;color:#1e3a5f;">
-              {safe_brand}
+            <td style="font-size:16px;line-height:1.6;color:#111827;">
+              Dear customer,
             </td>
           </tr>
           <tr>
-            <td style="padding-top:20px;font-size:16px;line-height:1.5;color:#111827;">
-              Hi {safe_name},
-            </td>
-          </tr>
-          <tr>
-            <td style="padding-top:12px;font-size:16px;line-height:1.5;color:#111827;">
-              You have been asked to sign <strong>{safe_title}</strong>.
+            <td style="padding-top:12px;font-size:16px;line-height:1.6;color:#111827;">
+              Please review and sign your contract.
             </td>
           </tr>
           <tr>
@@ -191,9 +171,6 @@ def send_signature_request(
               Or copy this link:<br />{safe_sign_url_text}
             </td>
           </tr>
-          <tr>
-            <td>{doc_status_html}</td>
-          </tr>
         </table>
       </td>
     </tr>
@@ -203,7 +180,7 @@ def send_signature_request(
 """
     send_email(
         to_email=signer_email,
-        to_name=signer_name,
+        to_name="",
         subject=subject,
         text_body=text_body,
         html_body=html_body,

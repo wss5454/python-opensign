@@ -92,6 +92,20 @@ Each signer can own one or more widgets:
 
 On the signer’s page, a canvas is drawn exactly over each widget so they sign in-place on the document.
 
+## Contract PDF form fields (Realtime-monitor)
+
+Wallace contracts can name AcroForm fields so the PC monitor creates signers and places signature boxes automatically:
+
+| Field | Purpose |
+|-------|---------|
+| `sig1`, `sig2`, … | Customer signature boxes (boat owner, co-owner). Signed first. |
+| `companysig1`, `companysig2`, … | Marina/company signature boxes. Emailed only after every `sig*` is signed. |
+| `email_sig1`, `email_companysig1`, … | Preferred. Filled-in email for that signature field. |
+| `cEmail` | Fallback for customer `sig*` fields when `email_sigN` is not present (Wallace contracts). |
+| `name_sig1`, `name_companysig1`, … | Optional display name (defaults to the email local-part). |
+
+A contract with no `sig*` fields still uses the old “scrape emails from PDF text” fallback. Numbering does not need to be contiguous.
+
 ## URLs
 
 | Kind | Path | Purpose |

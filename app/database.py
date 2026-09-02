@@ -83,6 +83,9 @@ class Signer(Base):
     email = Column(String(255), nullable=False, index=True)
     role = Column(String(50), default="signer")  # signer | viewer | approver
     order_index = Column(Integer, default=0)
+    # 0 = customer (sig1..N), 1 = company/marina (companysig1..N)
+    phase = Column(Integer, default=0, nullable=False, index=True)
+    field_name = Column(String(120), nullable=True)
     status = Column(String(50), default="pending")  # pending | viewed | signed | declined
     # Unique signing URL token: /sign/{access_token}
     access_token = Column(String(64), unique=True, nullable=False, index=True)
@@ -117,6 +120,7 @@ class SignerWidget(Base):
     y = Column(Float, nullable=False)
     w = Column(Float, nullable=False)
     h = Column(Float, nullable=False)
+    field_name = Column(String(120), nullable=True)
     signature_path = Column(String(500), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
@@ -212,6 +216,18 @@ def _migrate_schema() -> None:
                             "NOT NULL DEFAULT 0"
                         )
                     )
+
+        signer_cols = _table_columns(inspector, "signers")
+        if signer_cols:
+            if "phase" not in signer_cols:
+                conn.execute(text("ALTER TABLE signers ADD COLUMN phase INTEGER DEFAULT 0"))
+                conn.execute(text("UPDATE signers SET phase = 0 WHERE phase IS NULL"))
+            if "field_name" not in signer_cols:
+                conn.execute(text("ALTER TABLE signers ADD COLUMN field_name VARCHAR(120)"))
+
+        widget_cols = _table_columns(inspector, "signer_widgets")
+        if widget_cols and "field_name" not in widget_cols:
+            conn.execute(text("ALTER TABLE signer_widgets ADD COLUMN field_name VARCHAR(120)"))
 
     # Ensure newer tables exist (e.g. signer_widgets)
     Base.metadata.create_all(bind=engine)

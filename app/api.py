@@ -47,6 +47,7 @@ def _widget_out(widget) -> WidgetOut:
         y=widget.y,
         w=widget.w,
         h=widget.h,
+        field_name=getattr(widget, "field_name", None),
         has_signature=bool(widget.signature_path),
     )
 
@@ -58,6 +59,8 @@ def _signer_out(signer: Signer, request: Request) -> SignerOut:
         email=signer.email,
         role=signer.role,
         order_index=signer.order_index,
+        phase=getattr(signer, "phase", 0) or 0,
+        field_name=getattr(signer, "field_name", None),
         status=signer.status,
         access_token=signer.access_token,
         sign_url=f"{_base(request)}/sign/{signer.access_token}",
@@ -154,6 +157,8 @@ SIGNERS_JSON_EXAMPLE = json.dumps(
             "email": "ada@example.com",
             "role": "signer",
             "order_index": 0,
+            "phase": 0,
+            "field_name": "sig1",
             "widgets": [
                 {
                     "type": "signature",
@@ -162,14 +167,17 @@ SIGNERS_JSON_EXAMPLE = json.dumps(
                     "y": 82.0,
                     "w": 28.0,
                     "h": 10.0,
+                    "field_name": "sig1",
                 }
             ],
         },
         {
-            "name": "Alan Turing",
-            "email": "alan@example.com",
+            "name": "Marina Owner",
+            "email": "office@wallace1.com",
             "role": "signer",
-            "order_index": 1,
+            "order_index": 0,
+            "phase": 1,
+            "field_name": "companysig1",
             "widgets": [
                 {
                     "type": "signature",
@@ -178,6 +186,7 @@ SIGNERS_JSON_EXAMPLE = json.dumps(
                     "y": 82.0,
                     "w": 28.0,
                     "h": 10.0,
+                    "field_name": "companysig1",
                 }
             ],
         },
@@ -186,7 +195,9 @@ SIGNERS_JSON_EXAMPLE = json.dumps(
 
 SIGNERS_JSON_HELP = (
     "JSON array of signers. Each signer may include `widgets` "
-    "(page + x/y/w/h as % of page, origin top-left). "
+    "(page + x/y/w/h as % of page, origin top-left) and optional `field_name`. "
+    "`phase` is 0 for customers (sig1..) and 1 for company/marina (companysig1..); "
+    "phase 1 is invited only after every phase 0 signer has signed. "
     "If `widgets` is omitted for a signer/approver, WallaceSign auto-assigns "
     "ordered non-overlapping slots (same as the UI). Example:\n\n"
     f"```json\n{SIGNERS_JSON_EXAMPLE}\n```"
