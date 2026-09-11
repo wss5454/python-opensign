@@ -2,16 +2,24 @@
 
 from __future__ import annotations
 
-import html
 import logging
 import smtplib
 import ssl
 from email.message import EmailMessage
+from pathlib import Path
 from typing import Optional
+
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+_TEMPLATE_DIR = Path(__file__).resolve().parent / "templates" / "emails"
+_jinja = Environment(
+    loader=FileSystemLoader(str(_TEMPLATE_DIR)),
+    autoescape=select_autoescape(["html", "xml"]),
+)
 
 
 class MailError(Exception):
@@ -113,6 +121,15 @@ def send_email(
     logger.info("Sent email to %s: %s", to_email, subject)
 
 
+def _customer_first_name(signer_name: str) -> str:
+    parts = (signer_name or "").strip().split()
+    return parts[0] if parts else "customer"
+
+
+def _dealership_name() -> str:
+    return (settings.mail_from_name or "").strip() or "your dealership"
+
+
 def send_signature_request(
     *,
     signer_name: str,
@@ -121,66 +138,41 @@ def send_signature_request(
     sign_url: str,
     document_url: Optional[str] = None,
 ) -> None:
-    """Send a generic signature invitation (no document filename in the message)."""
-    del signer_name, document_title, document_url  # kept for API compatibility
+    """Send the Wallace eSign signature invitation email."""
+    del document_title, document_url  # kept for API compatibility
 
-    subject = "Please review and sign your contract"
+    first_name = _customer_first_name(signer_name)
+    dealership = _dealership_name()
+    subject = "Your contract is ready for signature"
+
     text_body = "\n".join(
         [
-            "Dear customer,",
+            f"Hi {first_name},",
             "",
-            "Please review and sign your contract.",
+            f"Your contract for {dealership} is ready for review. "
+            "Please review and sign electronically to keep your reservation "
+            "active for the upcoming season.",
             "",
+            "Review & Sign:",
             sign_url,
             "",
-            "If you were not expecting this request, you can ignore this email.",
+            "This link is unique to you — please don't forward this email. "
+            "If you have questions about your renewal, contact your "
+            "dealership's office directly.",
+            "",
+            "Signing made easy!",
         ]
     )
 
-    safe_sign_url = html.escape(sign_url, quote=True)
-    safe_sign_url_text = html.escape(sign_url)
-    html_body = f"""\
-<!DOCTYPE html>
-<html>
-<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3f4f6;padding:24px 12px;">
-    <tr>
-      <td align="center">
-        <table role="presentation" width="560" cellspacing="0" cellpadding="0" style="background:#ffffff;border-radius:8px;padding:28px 24px;">
-          <tr>
-            <td style="font-size:16px;line-height:1.6;color:#111827;">
-              Dear customer,
-            </td>
-          </tr>
-          <tr>
-            <td style="padding-top:12px;font-size:16px;line-height:1.6;color:#111827;">
-              Please review and sign your contract.
-            </td>
-          </tr>
-          <tr>
-            <td style="padding-top:24px;" align="center">
-              <a href="{safe_sign_url}"
-                 style="display:inline-block;background:#1e3a5f;color:#ffffff;text-decoration:none;
-                        padding:12px 22px;border-radius:6px;font-size:15px;font-weight:600;">
-                Review and sign
-              </a>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding-top:18px;font-size:13px;line-height:1.5;color:#6b7280;word-break:break-all;">
-              Or copy this link:<br />{safe_sign_url_text}
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-"""
+    html_body = _jinja.get_template("signature_request.html").render(
+        customer_first_name=first_name,
+        dealership_name=dealership,
+        sign_url=sign_url,
+    )
+
     send_email(
         to_email=signer_email,
-        to_name="",
+        to_name=signer_name or "",
         subject=subject,
         text_body=text_body,
         html_body=html_body,
