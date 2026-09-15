@@ -382,7 +382,11 @@ async function renderSigningViewer(root) {
       pageCanvas.width = viewport.width;
       pageCanvas.height = viewport.height;
       pageWrap.appendChild(pageCanvas);
-      await page.render({ canvasContext: pageCanvas.getContext("2d"), viewport }).promise;
+      await page.render({
+        canvasContext: pageCanvas.getContext("2d"),
+        viewport,
+        annotationMode: pdfjsLib.AnnotationMode.ENABLE,
+      }).promise;
 
       const pageWidgets = widgets.filter((w) => Number(w.page) === pageNum);
       for (const widget of pageWidgets) {
@@ -454,6 +458,7 @@ async function renderSigningViewer(root) {
         await page.render({
           canvasContext: thumbCanvas.getContext("2d"),
           viewport: thumbViewport,
+          annotationMode: pdfjsLib.AnnotationMode.ENABLE,
         }).promise;
         thumbBtn.appendChild(thumbCanvas);
         const check = document.createElement("span");

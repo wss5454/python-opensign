@@ -157,7 +157,7 @@ A contract with no `sig*` fields still uses the old “scrape emails from PDF te
 | `WALLACESIGN_SMTP_USER` | _(empty)_ | SMTP username (full email address) |
 | `WALLACESIGN_SMTP_PASSWORD` | _(empty)_ | Email account password |
 | `WALLACESIGN_MAIL_FROM` | `office@wallace1.com` | From address |
-| `WALLACESIGN_MAIL_FROM_NAME` | `Wallace` | From display name |
+| `WALLACESIGN_MAIL_FROM_NAME` | `Wallace` | Dealership name shown in signature emails (and From display name) |
 
 ## Email (signature links)
 
@@ -176,7 +176,11 @@ WALLACESIGN_SMTP_USE_SSL=true
 WALLACESIGN_SMTP_USER=office@wallace1.com
 WALLACESIGN_SMTP_PASSWORD=your-email-account-password
 WALLACESIGN_MAIL_FROM=office@wallace1.com
+# Dealership name shown in the signature email header/body
 WALLACESIGN_MAIL_FROM_NAME=Wallace
 ```
 
 Copy `.env.example` to `.env` and fill in the mailbox password. Restart the app after changing env vars.
+
+
+powershell -ExecutionPolicy Bypass -File .\build.ps1

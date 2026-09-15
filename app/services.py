@@ -212,6 +212,16 @@ def widget_pdf_rect(widget: SignerWidget, page_width: float, page_height: float)
     return pdf_x, pdf_y, pdf_w, pdf_h
 
 
+def _ensure_form_appearances(writer: PdfWriter) -> None:
+    """Ask viewers to regenerate AcroForm appearances so filled values print."""
+    setter = getattr(writer, "set_need_appearances_writer", None)
+    if callable(setter):
+        try:
+            setter(True)
+        except Exception:
+            pass
+
+
 def apply_widgets_to_pdf(
     source_pdf: Path,
     widgets: Sequence[SignerWidget],
@@ -219,9 +229,16 @@ def apply_widgets_to_pdf(
     signer_name: str,
     output_path: Path,
 ) -> Path:
-    """Stamp each widget signature onto the correct PDF page at its location."""
+    """Stamp signature images onto the PDF without dropping filled form fields.
+
+    Cloning via append() keeps the AcroForm catalog (name, address, etc.).
+    add_page() copies page drawings only and was wiping those values.
+    """
+    del signer_name  # reserved for future visible signer labels
+
     reader = PdfReader(str(source_pdf))
     writer = PdfWriter()
+    writer.append(reader)
 
     overlays: Dict[int, list] = {}
     for widget in widgets:
@@ -229,35 +246,35 @@ def apply_widgets_to_pdf(
         if not sig_path or not Path(sig_path).exists():
             continue
         page_index = max(widget.page, 1) - 1
-        if page_index >= len(reader.pages):
-            page_index = len(reader.pages) - 1
+        if page_index >= len(writer.pages):
+            page_index = len(writer.pages) - 1
         overlays.setdefault(page_index, []).append((widget, Path(sig_path)))
 
-    for i, page in enumerate(reader.pages):
+    for i, page in enumerate(writer.pages):
+        if i not in overlays:
+            continue
         page_width = float(page.mediabox.width)
         page_height = float(page.mediabox.height)
+        packet = io.BytesIO()
+        c = canvas.Canvas(packet, pagesize=(page_width, page_height))
+        for widget, sig_path in overlays[i]:
+            pdf_x, pdf_y, pdf_w, pdf_h = widget_pdf_rect(widget, page_width, page_height)
+            c.drawImage(
+                str(sig_path),
+                pdf_x,
+                pdf_y,
+                width=pdf_w,
+                height=pdf_h,
+                mask="auto",
+                preserveAspectRatio=True,
+                anchor="c",
+            )
+        c.save()
+        packet.seek(0)
+        overlay_page = PdfReader(packet).pages[0]
+        page.merge_page(overlay_page)
 
-        if i in overlays:
-            packet = io.BytesIO()
-            c = canvas.Canvas(packet, pagesize=(page_width, page_height))
-            for widget, sig_path in overlays[i]:
-                pdf_x, pdf_y, pdf_w, pdf_h = widget_pdf_rect(widget, page_width, page_height)
-                c.drawImage(
-                    str(sig_path),
-                    pdf_x,
-                    pdf_y,
-                    width=pdf_w,
-                    height=pdf_h,
-                    mask="auto",
-                    preserveAspectRatio=True,
-                    anchor="c",
-                )
-            c.save()
-            packet.seek(0)
-            overlay_page = PdfReader(packet).pages[0]
-            page.merge_page(overlay_page)
-
-        writer.add_page(page)
+    _ensure_form_appearances(writer)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "wb") as f:

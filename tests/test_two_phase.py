@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT / "Realtime-monitor"))
 from app.services import (  # noqa: E402
     _signers_to_email,
     active_phase,
+    apply_widgets_to_pdf,
     assign_ordered_widgets,
     can_signer_act,
 )
@@ -180,6 +181,55 @@ class PhaseGateTests(unittest.TestCase):
         a.status = "signed"
         self.assertEqual([s.id for s in _signers_to_email(doc)], [2])
         self.assertFalse(can_signer_act(doc, company))
+
+
+class StampPreservesFormFieldsTests(unittest.TestCase):
+    def test_filled_contract_keeps_name_and_address(self):
+        pdf = ROOT / "Contract_filled.pdf"
+        if not pdf.is_file():
+            self.skipTest("Contract_filled.pdf not present")
+
+        from pypdf import PdfReader
+        from PIL import Image
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            sig_path = tmp_path / "sig.png"
+            Image.new("RGBA", (200, 80), (0, 0, 0, 128)).save(sig_path)
+            widget = SimpleNamespace(
+                id=1,
+                type="signature",
+                page=1,
+                x=10.0,
+                y=80.0,
+                w=20.0,
+                h=8.0,
+            )
+            out_path = tmp_path / "stamped.pdf"
+            apply_widgets_to_pdf(
+                pdf,
+                [widget],
+                {1: sig_path},
+                "Test Customer",
+                out_path,
+            )
+
+            before = PdfReader(str(pdf)).get_fields() or {}
+            after = PdfReader(str(out_path)).get_fields() or {}
+            self.assertGreaterEqual(len(after), 30)
+
+            def _val(fields, name):
+                data = fields.get(name) or fields.get(f"/{name}")
+                if not data:
+                    return ""
+                if isinstance(data, dict):
+                    return str(data.get("/V") or "")
+                return str(getattr(data, "value", "") or "")
+
+            self.assertEqual(_val(after, "cName"), _val(before, "cName"))
+            self.assertEqual(_val(after, "cAddress"), _val(before, "cAddress"))
+            self.assertIn("TEST CUSTOMER", _val(after, "cName"))
+            self.assertIn("123 ADDRESS", _val(after, "cAddress"))
 
 
 if __name__ == "__main__":
