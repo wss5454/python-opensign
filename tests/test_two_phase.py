@@ -13,8 +13,11 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "Realtime-monitor"))
 
 from app.services import (  # noqa: E402
+    ATTACHMENT_MAX_BYTES,
+    _safe_attachment_name,
     _signers_to_email,
     active_phase,
+    add_signer_attachment,
     apply_widgets_to_pdf,
     assign_ordered_widgets,
     can_signer_act,
@@ -238,6 +241,41 @@ class DealershipNameTests(unittest.TestCase):
 
         self.assertEqual(_dealership_name("Bayview Marina"), "Bayview Marina")
         self.assertEqual(_dealership_name("  "), _dealership_name(None))
+
+
+class SignerAttachmentTests(unittest.TestCase):
+    def test_safe_name_keeps_basename(self):
+        self.assertEqual(_safe_attachment_name(r"..\..\secret card.pdf"), "secret card.pdf")
+        self.assertEqual(_safe_attachment_name("photos/ins-card.JPG"), "ins-card.JPG")
+
+    def test_rejects_disallowed_type(self):
+        signer = _signer()
+        doc = _doc(signer, status="sent")
+        with self.assertRaises(ValueError) as ctx:
+            add_signer_attachment(None, doc, signer, "note.exe", b"hello")
+        self.assertIn("Allowed file types", str(ctx.exception))
+
+    def test_rejects_empty_and_oversized(self):
+        signer = _signer()
+        doc = _doc(signer, status="sent")
+        with self.assertRaises(ValueError):
+            add_signer_attachment(None, doc, signer, "card.pdf", b"")
+        with self.assertRaises(ValueError) as ctx:
+            add_signer_attachment(
+                None,
+                doc,
+                signer,
+                "card.pdf",
+                b"x" * (ATTACHMENT_MAX_BYTES + 1),
+            )
+        self.assertIn("15 MB", str(ctx.exception))
+
+    def test_rejects_when_signer_cannot_act(self):
+        signer = _signer(status="signed")
+        doc = _doc(signer, status="partially_signed")
+        with self.assertRaises(ValueError) as ctx:
+            add_signer_attachment(None, doc, signer, "card.pdf", b"hello")
+        self.assertIn("cannot add files", str(ctx.exception).lower())
 
 
 if __name__ == "__main__":

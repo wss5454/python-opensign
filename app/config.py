@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     uploads_dir: Path = storage_dir / "uploads"
     signed_dir: Path = storage_dir / "signed"
     signatures_dir: Path = storage_dir / "signatures"
+    attachments_dir: Path = storage_dir / "attachments"
 
     # Public URL used in signature emails (no trailing slash).
     # Example: https://sign.wallace1.com
@@ -92,5 +93,6 @@ def ensure_directories() -> None:
         settings.uploads_dir,
         settings.signed_dir,
         settings.signatures_dir,
+        settings.attachments_dir,
     ):
         path.mkdir(parents=True, exist_ok=True)

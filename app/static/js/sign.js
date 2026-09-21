@@ -572,7 +572,96 @@ async function renderSigningViewer(root) {
   });
 }
 
+function formatBytes(n) {
+  const size = Number(n) || 0;
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function apiError(data, fallback) {
+  const detail = data && data.detail;
+  if (typeof detail === "string" && detail) return detail;
+  if (Array.isArray(detail) && detail.length) {
+    const first = detail[0];
+    if (typeof first === "string") return first;
+    if (first && first.msg) return first.msg;
+  }
+  return fallback;
+}
+
+function setupAttachments(token) {
+  const listEl = document.getElementById("attach-list");
+  const input = document.getElementById("attach-input");
+  if (!listEl || !input || !token) return;
+
+  async function refresh() {
+    const res = await fetch(`/api/sign/${token}/attachments`);
+    const items = await res.json().catch(() => []);
+    listEl.replaceChildren();
+    if (!Array.isArray(items) || !items.length) {
+      const empty = document.createElement("li");
+      empty.className = "muted";
+      empty.textContent = "No files added yet.";
+      listEl.appendChild(empty);
+      return;
+    }
+    items.forEach((item) => {
+      const li = document.createElement("li");
+      const label = document.createElement("span");
+      label.append(String(item.filename || "file"));
+      const size = document.createElement("span");
+      size.className = "muted";
+      size.textContent = ` (${formatBytes(item.size_bytes)})`;
+      label.appendChild(size);
+
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "sw-attach-remove";
+      remove.textContent = "Remove";
+      remove.addEventListener("click", async () => {
+        const del = await fetch(`/api/sign/${token}/attachments/${item.id}`, {
+          method: "DELETE",
+        });
+        if (!del.ok) {
+          const data = await del.json().catch(() => ({}));
+          showToast(apiError(data, "Could not remove file"), "error");
+          return;
+        }
+        await refresh();
+      });
+      li.append(label, remove);
+      listEl.appendChild(li);
+    });
+  }
+
+  input.addEventListener("change", async () => {
+    const files = Array.from(input.files || []);
+    input.value = "";
+    for (const file of files) {
+      const fd = new FormData();
+      fd.append("file", file, file.name);
+      try {
+        const res = await fetch(`/api/sign/${token}/attachments`, {
+          method: "POST",
+          body: fd,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(apiError(data, `Could not upload ${file.name}`));
+        }
+      } catch (err) {
+        showToast(err.message, "error");
+      }
+    }
+    await refresh();
+  });
+
+  refresh().catch(() => {});
+}
+
 setupConsentGate();
+setupAttachments(document.getElementById("pdf-viewer")?.dataset.token);
 
 const viewer = document.getElementById("pdf-viewer");
 if (viewer) {

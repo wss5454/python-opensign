@@ -159,6 +159,7 @@ def document_detail(
         db.query(Document)
         .options(
             joinedload(Document.signers).joinedload(Signer.widgets),
+            joinedload(Document.signers).joinedload(Signer.attachments),
             joinedload(Document.audit_events),
         )
         .filter(Document.id == document_id)
@@ -215,6 +216,7 @@ def sign_page(token: str, request: Request, db: Session = Depends(get_db)):
         db.query(Signer)
         .options(
             joinedload(Signer.widgets),
+            joinedload(Signer.attachments),
             joinedload(Signer.document).joinedload(Document.signers),
         )
         .filter(Signer.access_token == token)

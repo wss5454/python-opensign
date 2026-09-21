@@ -12,7 +12,15 @@ from reportlab.pdfgen import canvas
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import settings
-from app.database import AuditEvent, Document, Signer, SignerWidget, User, utcnow
+from app.database import (
+    AuditEvent,
+    Document,
+    Signer,
+    SignerAttachment,
+    SignerWidget,
+    User,
+    utcnow,
+)
 from app.mail import (
     MailError,
     document_url_for,
@@ -176,6 +184,124 @@ def save_upload(filename: str, content: bytes) -> Path:
     dest = settings.uploads_dir / unique
     dest.write_bytes(content)
     return dest
+
+
+ATTACHMENT_MAX_BYTES = 15 * 1024 * 1024
+ATTACHMENT_MAX_PER_SIGNER = 8
+ATTACHMENT_ALLOWED_EXT = {
+    ".pdf",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".webp",
+    ".heic",
+    ".tif",
+    ".tiff",
+}
+
+
+def _safe_attachment_name(filename: str) -> str:
+    name = Path(filename or "attachment").name.strip() or "attachment"
+    keep = "".join(ch if ch.isalnum() or ch in " ._-" else "_" for ch in name)
+    return keep[:180] or "attachment"
+
+
+def attachment_to_dict(attachment: SignerAttachment) -> dict:
+    return {
+        "id": attachment.id,
+        "signer_id": attachment.signer_id,
+        "filename": attachment.filename,
+        "content_type": attachment.content_type or "application/octet-stream",
+        "size_bytes": attachment.size_bytes or 0,
+        "created_at": attachment.created_at.isoformat() if attachment.created_at else None,
+        "download_url": f"/api/documents/{attachment.document_id}/attachments/{attachment.id}/file",
+    }
+
+
+def add_signer_attachment(
+    db: Session,
+    document: Document,
+    signer: Signer,
+    filename: str,
+    content: bytes,
+    content_type: Optional[str] = None,
+) -> SignerAttachment:
+    if not can_signer_act(document, signer):
+        raise ValueError("You cannot add files to this document right now")
+    if not content:
+        raise ValueError("Empty file")
+    if len(content) > ATTACHMENT_MAX_BYTES:
+        raise ValueError("Each attachment must be 15 MB or smaller")
+
+    safe_name = _safe_attachment_name(filename)
+    ext = Path(safe_name).suffix.lower()
+    if ext not in ATTACHMENT_ALLOWED_EXT:
+        raise ValueError(
+            "Allowed file types: PDF, PNG, JPG, GIF, WEBP, HEIC, TIFF"
+        )
+
+    existing = (
+        db.query(SignerAttachment)
+        .filter(SignerAttachment.signer_id == signer.id)
+        .count()
+    )
+    if existing >= ATTACHMENT_MAX_PER_SIGNER:
+        raise ValueError(f"You can attach at most {ATTACHMENT_MAX_PER_SIGNER} files")
+
+    dest = settings.attachments_dir / f"{uuid.uuid4().hex}_{safe_name}"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(content)
+
+    attachment = SignerAttachment(
+        signer_id=signer.id,
+        document_id=document.id,
+        filename=safe_name,
+        stored_path=str(dest),
+        content_type=(content_type or "")[:120] or None,
+        size_bytes=len(content),
+    )
+    db.add(attachment)
+    add_audit(
+        db,
+        document.id,
+        "attachment_added",
+        f"{signer.name} attached {safe_name}",
+        signer_id=signer.id,
+    )
+    db.commit()
+    db.refresh(attachment)
+    return attachment
+
+
+def delete_signer_attachment(
+    db: Session,
+    document: Document,
+    signer: Signer,
+    attachment: SignerAttachment,
+) -> None:
+    if attachment.signer_id != signer.id:
+        raise ValueError("Attachment does not belong to this signer")
+    if not can_signer_act(document, signer):
+        raise ValueError("You cannot remove files after signing")
+    path = attachment.stored_path
+    db.delete(attachment)
+    add_audit(
+        db,
+        document.id,
+        "attachment_removed",
+        f"{signer.name} removed {attachment.filename}",
+        signer_id=signer.id,
+    )
+    db.commit()
+    _safe_unlink(path)
+
+
+def list_document_attachments(document: Document) -> List[SignerAttachment]:
+    items: List[SignerAttachment] = []
+    for signer in document.signers:
+        items.extend(list(signer.attachments or []))
+    return items
 
 
 def decode_signature_image(data_url: str) -> Path:
@@ -541,6 +667,8 @@ def delete_document(db: Session, document: Document) -> None:
         file_paths.append(signer.signature_path)
         for widget in signer.widgets:
             file_paths.append(widget.signature_path)
+        for attachment in getattr(signer, "attachments", []) or []:
+            file_paths.append(attachment.stored_path)
 
     db.delete(document)
     db.commit()

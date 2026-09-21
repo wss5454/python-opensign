@@ -82,6 +82,16 @@
            data-signer-name="{{ signer.name }}"></div>
     </div>
     <p id="sign-error" class="error sw-error" hidden></p>
+
+    <div class="sw-attach" id="attach-panel">
+      <h3>Add supporting documents</h3>
+      <p class="muted">Optional. Upload insurance cards or other files to share with the marina (PDF, JPG, or PNG, up to 15 MB each).</p>
+      <label class="sw-attach-drop">
+        <input type="file" id="attach-input" multiple accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.heic,.tif,.tiff,application/pdf,image/*" />
+        <span>Choose files</span>
+      </label>
+      <ul id="attach-list" class="sw-attach-list"></ul>
+    </div>
   </section>
 
   <aside class="sw-signers">
@@ -211,5 +221,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/sign.js?v=form-fields-1"></script>
+<script src="/static/js/sign.js?v=attachments-2"></script>
 {% endblock %}

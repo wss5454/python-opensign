@@ -126,6 +126,16 @@ class SignRequest(BaseModel):
     consent: bool = True
 
 
+class AttachmentOut(BaseModel):
+    id: int
+    signer_id: int
+    filename: str
+    content_type: str = "application/octet-stream"
+    size_bytes: int = 0
+    created_at: Optional[datetime] = None
+    download_url: Optional[str] = None
+
+
 class HealthOut(BaseModel):
     status: str
     app: str

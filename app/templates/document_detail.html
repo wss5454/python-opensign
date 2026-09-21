@@ -76,6 +76,24 @@
           {% endfor %}
         </tbody>
       </table>
+
+      <h2 style="margin-top:1.5rem;">Signer attachments</h2>
+      {% set ns = namespace(count=0) %}
+      <ul class="widget-list">
+        {% for s in document.signers %}
+          {% for a in s.attachments %}
+            {% set ns.count = ns.count + 1 %}
+            <li>
+              {{ a.filename }}
+              <span class="muted">· {{ s.name }}</span>
+              <a class="link" href="/api/documents/{{ document.id }}/attachments/{{ a.id }}/file" target="_blank">Download</a>
+            </li>
+          {% endfor %}
+        {% endfor %}
+      </ul>
+      {% if ns.count == 0 %}
+      <p class="muted">No extra files uploaded yet (insurance cards, photos, etc.).</p>
+      {% endif %}
     </div>
 
     <div>

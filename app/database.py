@@ -103,6 +103,12 @@ class Signer(Base):
         cascade="all, delete-orphan",
         order_by="SignerWidget.id",
     )
+    attachments = relationship(
+        "SignerAttachment",
+        back_populates="signer",
+        cascade="all, delete-orphan",
+        order_by="SignerAttachment.id",
+    )
 
 
 class SignerWidget(Base):
@@ -127,6 +133,23 @@ class SignerWidget(Base):
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
     signer = relationship("Signer", back_populates="widgets")
+
+
+class SignerAttachment(Base):
+    """Optional supporting files a signer uploads (insurance cards, etc.)."""
+
+    __tablename__ = "signer_attachments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    signer_id = Column(Integer, ForeignKey("signers.id", ondelete="CASCADE"), nullable=False, index=True)
+    document_id = Column(Integer, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
+    filename = Column(String(255), nullable=False)
+    stored_path = Column(String(500), nullable=False)
+    content_type = Column(String(120), nullable=True)
+    size_bytes = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    signer = relationship("Signer", back_populates="attachments")
 
 
 class AuditEvent(Base):

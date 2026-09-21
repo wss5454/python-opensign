@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from typing import List, Optional
 
 from pydantic import ValidationError
@@ -8,9 +9,10 @@ from sqlalchemy.orm import Session, joinedload
 
 from app import services
 from app.config import settings
-from app.database import Document, Signer, get_db
+from app.database import Document, Signer, SignerAttachment, get_db
 from app.mail import MailError
 from app.schemas import (
+    AttachmentOut,
     AuditEventOut,
     DocumentListItem,
     DocumentOut,
@@ -92,6 +94,7 @@ def _load_document(db: Session, document_id: int) -> Optional[Document]:
         db.query(Document)
         .options(
             joinedload(Document.signers).joinedload(Signer.widgets),
+            joinedload(Document.signers).joinedload(Signer.attachments),
             joinedload(Document.audit_events),
         )
         .filter(Document.id == document_id)
@@ -104,7 +107,9 @@ def _load_signer_by_token(db: Session, token: str) -> Optional[Signer]:
         db.query(Signer)
         .options(
             joinedload(Signer.widgets),
+            joinedload(Signer.attachments),
             joinedload(Signer.document).joinedload(Document.signers).joinedload(Signer.widgets),
+            joinedload(Signer.document).joinedload(Document.signers).joinedload(Signer.attachments),
         )
         .filter(Signer.access_token == token)
         .first()
@@ -518,6 +523,104 @@ async def submit_signature(
     if doc and doc.status == "completed":
         await emit_document_finished(doc)
     return _document_out(doc, request)
+
+
+@api_router.get("/documents/{document_id}/attachments", response_model=List[AttachmentOut])
+def list_document_attachments(document_id: int, db: Session = Depends(get_db)):
+    doc = _load_document(db, document_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return [
+        AttachmentOut(**services.attachment_to_dict(item))
+        for item in services.list_document_attachments(doc)
+    ]
+
+
+@api_router.get("/documents/{document_id}/attachments/{attachment_id}/file")
+def download_document_attachment(
+    document_id: int,
+    attachment_id: int,
+    db: Session = Depends(get_db),
+):
+    attachment = (
+        db.query(SignerAttachment)
+        .filter(
+            SignerAttachment.id == attachment_id,
+            SignerAttachment.document_id == document_id,
+        )
+        .first()
+    )
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    path = Path(attachment.stored_path)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Attachment file missing")
+    return FileResponse(
+        path,
+        media_type=attachment.content_type or "application/octet-stream",
+        filename=attachment.filename,
+    )
+
+
+@api_router.get("/sign/{token}/attachments", response_model=List[AttachmentOut])
+def list_signer_attachments(token: str, db: Session = Depends(get_db)):
+    signer = _load_signer_by_token(db, token)
+    if not signer:
+        raise HTTPException(status_code=404, detail="Invalid signing link")
+    return [
+        AttachmentOut(**services.attachment_to_dict(item))
+        for item in (signer.attachments or [])
+    ]
+
+
+@api_router.post("/sign/{token}/attachments", response_model=AttachmentOut)
+async def upload_signer_attachment(
+    token: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    signer = _load_signer_by_token(db, token)
+    if not signer:
+        raise HTTPException(status_code=404, detail="Invalid signing link")
+    content = await file.read()
+    try:
+        attachment = services.add_signer_attachment(
+            db,
+            signer.document,
+            signer,
+            filename=file.filename or "attachment",
+            content=content,
+            content_type=file.content_type,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return AttachmentOut(**services.attachment_to_dict(attachment))
+
+
+@api_router.delete("/sign/{token}/attachments/{attachment_id}")
+def remove_signer_attachment(
+    token: str,
+    attachment_id: int,
+    db: Session = Depends(get_db),
+):
+    signer = _load_signer_by_token(db, token)
+    if not signer:
+        raise HTTPException(status_code=404, detail="Invalid signing link")
+    attachment = (
+        db.query(SignerAttachment)
+        .filter(
+            SignerAttachment.id == attachment_id,
+            SignerAttachment.signer_id == signer.id,
+        )
+        .first()
+    )
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    try:
+        services.delete_signer_attachment(db, signer.document, signer, attachment)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"ok": True}
 
 
 @api_router.post("/sign/{token}/decline", response_model=DocumentOut)

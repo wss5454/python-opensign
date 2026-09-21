@@ -113,6 +113,8 @@ A contract with no `sig*` fields still uses the old “scrape emails from PDF te
 | Document URL | `/d/{public_token}` | Public document status + download |
 | Sign URL | `/sign/{access_token}` | That signer’s signing session |
 
+On the signing page, the customer can optionally attach supporting files (insurance cards, photos, PDFs). Those files are stored with the contract, listed on the admin document page, and downloaded by Realtime-monitor into `{signed-pdf-name}-attachments/` next to the signed PDF.
+
 ## Create document (multipart)
 
 - `title`, `description`, `sequential`

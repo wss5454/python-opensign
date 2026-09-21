@@ -863,6 +863,53 @@ body.sign-workspace {
   cursor: pointer;
 }
 .sw-toolbar-actions { display: flex; gap: 0.5rem; align-items: center; }
+.sw-attach {
+  background: #fff;
+  border-top: 1px solid var(--line);
+  padding: 0.9rem 1rem 1.1rem;
+}
+.sw-attach h3 {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+}
+.sw-attach-drop {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+.sw-attach-drop input { display: none; }
+.sw-attach-list {
+  list-style: none;
+  margin: 0.65rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+.sw-attach-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.4rem 0.55rem;
+  background: #f3f4f6;
+  border-radius: 8px;
+  font-size: 0.86rem;
+}
+.sw-attach-remove {
+  border: 0;
+  background: transparent;
+  color: #b91c1c;
+  cursor: pointer;
+  font-weight: 600;
+}
 .sw-stage-wrap {
   position: relative;
   flex: 1;
