@@ -157,13 +157,23 @@ A contract with no `sig*` fields still uses the old “scrape emails from PDF te
 | `WALLACESIGN_SMTP_USER` | _(empty)_ | SMTP username (full email address) |
 | `WALLACESIGN_SMTP_PASSWORD` | _(empty)_ | Email account password |
 | `WALLACESIGN_MAIL_FROM` | `office@wallace1.com` | From address |
-| `WALLACESIGN_MAIL_FROM_NAME` | `Wallace` | Dealership name shown in signature emails (and From display name) |
+| `WALLACESIGN_MAIL_FROM_NAME` | `Wallace` | Default dealership name in signature emails when a document does not set `dealership_name` |
 
 ## Email (signature links)
 
 When `WALLACESIGN_MAIL_ENABLED=true`, sending a document emails each signer a unique `/sign/{token}` link from `office@wallace1.com` (or your configured from address).
 
 For sequential documents, only the current signer is emailed; the next signer is emailed after the previous one completes.
+
+On a **shared WallaceSign server**, each marina’s Realtime-monitor sets its own name in `config.yaml`:
+
+```yaml
+custom:
+  api_host: "https://your-shared-wallacesign.com"
+  dealership_name: "Bayview Marina"   # or sender_name
+```
+
+That value is stored on the document and used in the email template (header + “Your contract for …”). If omitted, the server falls back to `WALLACESIGN_MAIL_FROM_NAME`.
 
 Bluehost example:
 
@@ -176,11 +186,8 @@ WALLACESIGN_SMTP_USE_SSL=true
 WALLACESIGN_SMTP_USER=office@wallace1.com
 WALLACESIGN_SMTP_PASSWORD=your-email-account-password
 WALLACESIGN_MAIL_FROM=office@wallace1.com
-# Dealership name shown in the signature email header/body
+# Fallback dealership name when monitor does not send dealership_name
 WALLACESIGN_MAIL_FROM_NAME=Wallace
 ```
 
 Copy `.env.example` to `.env` and fill in the mailbox password. Restart the app after changing env vars.
-
-
-powershell -ExecutionPolicy Bypass -File .\build.ps1

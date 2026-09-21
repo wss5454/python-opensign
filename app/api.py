@@ -79,6 +79,7 @@ def _document_out(doc: Document, request: Request) -> DocumentOut:
         sequential=doc.sequential,
         public_token=doc.public_token,
         document_url=f"{_base(request)}/d/{doc.public_token}",
+        dealership_name=getattr(doc, "dealership_name", None) or None,
         created_at=doc.created_at,
         updated_at=doc.updated_at,
         completed_at=doc.completed_at,
@@ -248,6 +249,7 @@ async def create_document(
     title: str = Form(...),
     description: str = Form(""),
     sequential: bool = Form(False),
+    dealership_name: str = Form(""),
     signers_json: str = Form(
         ...,
         description=SIGNERS_JSON_HELP,
@@ -271,6 +273,7 @@ async def create_document(
             filename=filename,
             file_content=content,
             signers=signers,
+            dealership_name=dealership_name.strip() or None,
         )
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -286,6 +289,8 @@ async def create_document(
     description=(
         "Upload a PDF, create the document, and immediately set status to **sent** "
         "in a single request. Emails signing links when mail is enabled. "
+        "Optional form field `dealership_name` overrides the server default marina "
+        "name in the signature email. "
         "Same multipart fields as create-document, including widgets "
         "inside `signers_json`. No auth cookie required.\n\n"
         + SIGNERS_JSON_HELP
@@ -296,6 +301,7 @@ async def create_and_send_document(
     title: str = Form(...),
     description: str = Form(""),
     sequential: bool = Form(False),
+    dealership_name: str = Form(""),
     signers_json: str = Form(
         ...,
         description=SIGNERS_JSON_HELP,
@@ -321,6 +327,7 @@ async def create_and_send_document(
             signers=signers,
             ip_address=_client_ip(request),
             base_url=_base(request),
+            dealership_name=dealership_name.strip() or None,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

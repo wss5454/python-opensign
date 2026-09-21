@@ -47,6 +47,8 @@ class Document(Base):
     title = Column(String(255), nullable=False)
     description = Column(Text, default="")
     filename = Column(String(255), nullable=False)
+    # Per-marina branding for signature emails (shared WallaceSign server)
+    dealership_name = Column(String(255), nullable=True)
     original_path = Column(String(500), nullable=False)
     signed_path = Column(String(500), nullable=True)
     status = Column(String(50), default="draft", index=True)
@@ -228,6 +230,12 @@ def _migrate_schema() -> None:
         widget_cols = _table_columns(inspector, "signer_widgets")
         if widget_cols and "field_name" not in widget_cols:
             conn.execute(text("ALTER TABLE signer_widgets ADD COLUMN field_name VARCHAR(120)"))
+
+        # Re-inspect so newly added document columns are visible to this check.
+        inspector = inspect(engine)
+        doc_cols = _table_columns(inspector, "documents")
+        if doc_cols and "dealership_name" not in doc_cols:
+            conn.execute(text("ALTER TABLE documents ADD COLUMN dealership_name VARCHAR(255)"))
 
     # Ensure newer tables exist (e.g. signer_widgets)
     Base.metadata.create_all(bind=engine)

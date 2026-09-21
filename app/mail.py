@@ -126,7 +126,10 @@ def _customer_first_name(signer_name: str) -> str:
     return parts[0] if parts else "customer"
 
 
-def _dealership_name() -> str:
+def _dealership_name(override: Optional[str] = None) -> str:
+    name = (override or "").strip()
+    if name:
+        return name
     return (settings.mail_from_name or "").strip() or "your dealership"
 
 
@@ -137,12 +140,13 @@ def send_signature_request(
     document_title: str,
     sign_url: str,
     document_url: Optional[str] = None,
+    dealership_name: Optional[str] = None,
 ) -> None:
     """Send the Wallace eSign signature invitation email."""
     del document_title, document_url  # kept for API compatibility
 
     first_name = _customer_first_name(signer_name)
-    dealership = _dealership_name()
+    dealership = _dealership_name(dealership_name)
     subject = "Your contract is ready for signature"
 
     text_body = "\n".join(

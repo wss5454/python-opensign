@@ -232,5 +232,13 @@ class StampPreservesFormFieldsTests(unittest.TestCase):
             self.assertIn("123 ADDRESS", _val(after, "cAddress"))
 
 
+class DealershipNameTests(unittest.TestCase):
+    def test_override_beats_settings_default(self):
+        from app.mail import _dealership_name
+
+        self.assertEqual(_dealership_name("Bayview Marina"), "Bayview Marina")
+        self.assertEqual(_dealership_name("  "), _dealership_name(None))
+
+
 if __name__ == "__main__":
     unittest.main()

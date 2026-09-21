@@ -76,6 +76,7 @@ class DocumentOut(BaseModel):
     sequential: bool
     public_token: str
     document_url: Optional[str] = None
+    dealership_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     completed_at: Optional[datetime] = None
