@@ -115,6 +115,10 @@ A contract with no `sig*` fields still uses the old “scrape emails from PDF te
 
 On the signing page, the customer can optionally attach supporting files (insurance cards, photos, PDFs). Those files are stored with the contract, listed on the admin document page, and downloaded by Realtime-monitor into `{signed-pdf-name}-attachments/` next to the signed PDF.
 
+### Sent-contracts log (Realtime-monitor)
+
+When a contract is uploaded and emailed, the monitor appends rows to a CSV file (default `sent_contracts.csv` next to the monitor). Set `send_log_path` in `config.yaml` (or `false` to disable). Columns: `sent_at`, `customer_name`, `customer_email`, `contract_file`, `document_id`, `status` (`sent` / `failed`), `detail`. Wallace can import this file for “did we send it?” reports.
+
 ## Create document (multipart)
 
 - `title`, `description`, `sequential`
