@@ -513,6 +513,7 @@ async def submit_signature(
             ip_address=_client_ip(request),
             legacy_signature_data=payload.signature_data,
             base_url=_base(request),
+            edits=[{"name": item.name, "value": item.value} for item in payload.edits],
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

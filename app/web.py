@@ -15,6 +15,7 @@ from app.auth import (
 )
 from app.config import settings
 from app.database import Document, Signer, User, get_db
+from app.pdf_form import list_edit_fields
 
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
 web_router = APIRouter(tags=["web"])
@@ -252,6 +253,8 @@ def sign_page(token: str, request: Request, db: Session = Depends(get_db)):
         }
         for w in signer.widgets
     ]
+    pdf_path = Path(signer.document.signed_path or signer.document.original_path)
+    edit_fields = list_edit_fields(pdf_path) if can_sign else []
 
     return templates.TemplateResponse(
         "sign.html",
@@ -264,6 +267,7 @@ def sign_page(token: str, request: Request, db: Session = Depends(get_db)):
             wait_message=wait_message,
             token=token,
             widgets_json=json.dumps(widgets),
+            edit_fields_json=json.dumps(edit_fields).replace("<", "\\u003c"),
             pdf_url=f"/api/documents/{signer.document.id}/file",
             all_signers=signer.document.signers,
         ),

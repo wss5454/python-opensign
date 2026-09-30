@@ -576,6 +576,22 @@ a:hover { text-decoration: underline; }
   pointer-events: none;
   z-index: 3;
 }
+.edit-field {
+  position: absolute;
+  z-index: 2;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0 4px;
+  border: 1px solid #1d4ed8;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #111827;
+  font: 12px/1.2 "DM Sans", sans-serif;
+}
+.edit-field:focus {
+  outline: 2px solid #1d4ed8;
+  background: #fff;
+}
 .sign-widget-canvas {
   width: 100%;
   height: 100%;

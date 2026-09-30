@@ -352,6 +352,14 @@ async function renderSigningViewer(root) {
   const signerName = root.dataset.signerName || "";
   const widgetsEl = document.getElementById("widgets-data");
   const widgets = JSON.parse(widgetsEl ? widgetsEl.textContent : "[]");
+  const editFieldsEl = document.getElementById("edit-fields-data");
+  const editFields = JSON.parse(editFieldsEl ? editFieldsEl.textContent : "[]");
+  const editValues = new Map(
+    (Array.isArray(editFields) ? editFields : []).map((field) => [
+      field.name,
+      field.value || "",
+    ])
+  );
   const pads = new Map();
   const modal = createSignatureModal({ defaultName: signerName });
   const thumbsEl = document.getElementById("page-thumbs");
@@ -362,7 +370,22 @@ async function renderSigningViewer(root) {
   let pdfDoc = null;
   const pageEls = [];
 
+  function snapshotEdits() {
+    document.querySelectorAll(".edit-field").forEach((el) => {
+      if (el.dataset.name) editValues.set(el.dataset.name, el.value);
+    });
+  }
+
+  function collectEdits() {
+    snapshotEdits();
+    return (Array.isArray(editFields) ? editFields : []).map((field) => ({
+      name: field.name,
+      value: editValues.get(field.name) || "",
+    }));
+  }
+
   async function renderAll() {
+    snapshotEdits();
     root.innerHTML = "";
     pageEls.length = 0;
     if (thumbsEl) thumbsEl.innerHTML = "";
@@ -424,6 +447,7 @@ async function renderSigningViewer(root) {
         }
         pads.set(widget.id, pad);
 
+        pageWrap.appendChild(box);
         box.addEventListener("click", () => {
           if (document.getElementById("sign-shell")?.dataset.locked === "true") return;
           modal?.open({
@@ -439,8 +463,29 @@ async function renderSigningViewer(root) {
             },
           });
         });
+      }
 
-        pageWrap.appendChild(box);
+      const pageEdits = (Array.isArray(editFields) ? editFields : []).filter(
+        (field) => Number(field.page) === pageNum
+      );
+      for (const field of pageEdits) {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "edit-field";
+        input.maxLength = 500;
+        input.dataset.name = field.name;
+        input.setAttribute("aria-label", field.name);
+        input.title = field.name;
+        input.value = editValues.get(field.name) || "";
+        input.style.left = `${normalizePct(field.x)}%`;
+        input.style.top = `${normalizePct(field.y)}%`;
+        input.style.width = `${normalizePct(field.w)}%`;
+        input.style.height = `${normalizePct(field.h)}%`;
+        input.addEventListener("input", () => {
+          editValues.set(field.name, input.value);
+        });
+        input.addEventListener("click", (event) => event.stopPropagation());
+        pageWrap.appendChild(input);
       }
 
       root.appendChild(pageWrap);
@@ -541,7 +586,7 @@ async function renderSigningViewer(root) {
       const res = await fetch(`/api/sign/${token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ signatures, consent: true }),
+        body: JSON.stringify({ signatures, edits: collectEdits(), consent: true }),
       });
       const data = await res.json();
       if (!res.ok) {

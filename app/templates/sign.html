@@ -75,6 +75,7 @@
         <button type="button" class="sw-zoom-btn" id="zoom-out" title="Zoom out">−</button>
       </div>
       <script type="application/json" id="widgets-data">{{ widgets_json | safe }}</script>
+      <script type="application/json" id="edit-fields-data">{{ edit_fields_json | default("[]") | safe }}</script>
       <div id="pdf-viewer"
            class="sw-pdf-viewer"
            data-token="{{ token }}"
@@ -221,5 +222,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/sign.js?v=attachments-2"></script>
+<script src="/static/js/sign.js?v=edit-fields-1"></script>
 {% endblock %}

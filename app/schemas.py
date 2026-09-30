@@ -117,10 +117,18 @@ class WidgetSignatureIn(BaseModel):
     signature_data: str = Field(..., description="Base64 PNG data URL for this widget")
 
 
+class FieldEditIn(BaseModel):
+    """Value typed into a PDF field named edit1, edit2, and so on."""
+
+    name: str = Field(..., max_length=40)
+    value: str = Field(default="", max_length=500)
+
+
 class SignRequest(BaseModel):
     """Submit one signature image per signature widget assigned to this signer."""
 
     signatures: List[WidgetSignatureIn] = Field(default_factory=list)
+    edits: List[FieldEditIn] = Field(default_factory=list)
     # Backward-compatible single pad (applied to first signature widget)
     signature_data: Optional[str] = None
     consent: bool = True

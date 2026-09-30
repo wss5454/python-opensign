@@ -103,8 +103,11 @@ Wallace contracts can name AcroForm fields so the PC monitor creates signers and
 | `email_sig1`, `email_companysig1`, … | Preferred. Filled-in email for that signature field. |
 | `cEmail` | Fallback for customer `sig*` fields when `email_sigN` is not present (Wallace contracts). |
 | `name_sig1`, `name_companysig1`, … | Optional display name (defaults to the email local-part). |
+| `edit1`, `edit2`, … | Text fields the customer can fill in while signing (insurance, and so on). Other fields stay as Wallace filled them. |
 
 A contract with no `sig*` fields still uses the old “scrape emails from PDF text” fallback. Numbering does not need to be contiguous.
+
+Uploaded supporting files are saved as `{customerNumber}_{originalName}`. The customer number is the first 12 digits in the contract file name (`00508661111_160908113014WET.pdf` → `005086611111_insurance.jpg`).
 
 ## URLs
 

@@ -28,6 +28,7 @@ from app.mail import (
     send_signature_request,
     sign_url_for,
 )
+from app.pdf_form import apply_edit_field_values, normalize_edit_values
 
 
 def generate_token() -> str:
@@ -207,6 +208,29 @@ def _safe_attachment_name(filename: str) -> str:
     return keep[:180] or "attachment"
 
 
+def customer_number_from_filename(filename: str, length: int = 12) -> str:
+    """First digits in a contract file name (Wallace customer number).
+
+    Non-digits are skipped, so ``00508661111_160908113014WET.pdf`` yields
+    ``005086611111``.
+    """
+    stem = Path(filename or "").stem
+    digits = "".join(ch for ch in stem if ch.isdigit())
+    return digits[: max(length, 0)]
+
+
+def prefixed_attachment_name(contract_filename: str, upload_filename: str) -> str:
+    """Store uploads as ``{customerNumber}_{originalName}`` for Jack's program."""
+    safe_name = _safe_attachment_name(upload_filename)
+    number = customer_number_from_filename(contract_filename)
+    if not number:
+        return safe_name
+    prefix = f"{number}_"
+    if safe_name.lower().startswith(prefix.lower()):
+        return safe_name
+    return f"{prefix}{safe_name}"
+
+
 def attachment_to_dict(attachment: SignerAttachment) -> dict:
     return {
         "id": attachment.id,
@@ -240,6 +264,7 @@ def add_signer_attachment(
         raise ValueError(
             "Allowed file types: PDF, PNG, JPG, GIF, WEBP, HEIC, TIFF"
         )
+    safe_name = prefixed_attachment_name(getattr(document, "filename", "") or "", safe_name)
 
     existing = (
         db.query(SignerAttachment)
@@ -354,17 +379,21 @@ def apply_widgets_to_pdf(
     signature_paths: Dict[int, Path],
     signer_name: str,
     output_path: Path,
+    field_values: Optional[dict] = None,
 ) -> Path:
     """Stamp signature images onto the PDF without dropping filled form fields.
 
     Cloning via append() keeps the AcroForm catalog (name, address, etc.).
     add_page() copies page drawings only and was wiping those values.
+    field_values may set customer fields named edit1, edit2, and so on.
     """
     del signer_name  # reserved for future visible signer labels
 
     reader = PdfReader(str(source_pdf))
     writer = PdfWriter()
     writer.append(reader)
+    if field_values:
+        apply_edit_field_values(writer, field_values)
 
     overlays: Dict[int, list] = {}
     for widget in widgets:
@@ -754,6 +783,7 @@ def sign_document(
     ip_address: Optional[str] = None,
     legacy_signature_data: Optional[str] = None,
     base_url: Optional[str] = None,
+    edits: Optional[list] = None,
 ) -> Document:
     if not can_signer_act(document, signer):
         raise ValueError("Signer is not allowed to sign this document yet")
@@ -787,7 +817,14 @@ def sign_document(
     source = Path(document.signed_path or document.original_path)
     out_name = f"doc_{document.id}_{signer.id}_{uuid.uuid4().hex[:8]}.pdf"
     out_path = settings.signed_dir / out_name
-    apply_widgets_to_pdf(source, signature_widgets, signature_paths, signer.name, out_path)
+    apply_widgets_to_pdf(
+        source,
+        signature_widgets,
+        signature_paths,
+        signer.name,
+        out_path,
+        field_values=normalize_edit_values(edits),
+    )
     document.signed_path = str(out_path)
 
     add_audit(
