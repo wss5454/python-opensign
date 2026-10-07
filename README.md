@@ -180,9 +180,35 @@ On a **shared WallaceSign server**, each marina’s Realtime-monitor sets its ow
 custom:
   api_host: "https://your-shared-wallacesign.com"
   dealership_name: "Bayview Marina"   # or sender_name
+  dealer_id: "101"                    # system dealer id for this company
 ```
 
-That value is stored on the document and used in the email template (header + “Your contract for …”). If omitted, the server falls back to `WALLACESIGN_MAIL_FROM_NAME`.
+That name is stored on the document and used in the email template (header + “Your contract for …”). If omitted, the server falls back to `WALLACESIGN_MAIL_FROM_NAME`.
+
+`dealer_id` is how a shared server returns the signed PDF to the right company. The monitor sends it with each contract and saves the signed file in that company's folder.
+
+One monitor can watch several companies. List them under `companies` and start the app once:
+
+```yaml
+provider: custom
+custom:
+  api_host: "https://your-shared-wallacesign.com"
+companies:
+  - name: "Bayview Marina"
+    dealer_id: "101"
+    watch_directory: "D:/Wallace/Company1/outgoing"
+    store_directory: "D:/Wallace/Company1/signed"
+    send_log_path: "D:/Wallace/Company1/sent_contracts.csv"
+  - name: "Bayview Storage"
+    dealer_id: "202"
+    watch_directory: "D:/Wallace/Company2/outgoing"
+    store_directory: "D:/Wallace/Company2/signed"
+    send_log_path: "D:/Wallace/Company2/sent_contracts.csv"
+```
+
+A contract dropped in Company 1's outgoing folder is sent as dealer `101` and, when signed, is saved in Company 1's signed folder. Leave `dealer_id` blank on a single-company config to download every finished contract.
+
+A config with only `watch_directory` and `store_directory` (no `companies` list) is still one company.
 
 Bluehost example:
 
@@ -200,3 +226,5 @@ WALLACESIGN_MAIL_FROM_NAME=Wallace
 ```
 
 Copy `.env.example` to `.env` and fill in the mailbox password. Restart the app after changing env vars.
+
+powershell -ExecutionPolicy Bypass -File .\build.ps1

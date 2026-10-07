@@ -82,6 +82,7 @@ def _document_out(doc: Document, request: Request) -> DocumentOut:
         public_token=doc.public_token,
         document_url=f"{_base(request)}/d/{doc.public_token}",
         dealership_name=getattr(doc, "dealership_name", None) or None,
+        dealer_id=getattr(doc, "dealer_id", None) or None,
         created_at=doc.created_at,
         updated_at=doc.updated_at,
         completed_at=doc.completed_at,
@@ -255,6 +256,7 @@ async def create_document(
     description: str = Form(""),
     sequential: bool = Form(False),
     dealership_name: str = Form(""),
+    dealer_id: str = Form(""),
     signers_json: str = Form(
         ...,
         description=SIGNERS_JSON_HELP,
@@ -279,6 +281,7 @@ async def create_document(
             file_content=content,
             signers=signers,
             dealership_name=dealership_name.strip() or None,
+            dealer_id=dealer_id.strip() or None,
         )
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -296,6 +299,8 @@ async def create_document(
         "in a single request. Emails signing links when mail is enabled. "
         "Optional form field `dealership_name` overrides the server default marina "
         "name in the signature email. "
+        "Optional form field `dealer_id` is stored on the document and sent back "
+        "on `document.finished` so each marina downloads only its own contracts. "
         "Same multipart fields as create-document, including widgets "
         "inside `signers_json`. No auth cookie required.\n\n"
         + SIGNERS_JSON_HELP
@@ -307,6 +312,7 @@ async def create_and_send_document(
     description: str = Form(""),
     sequential: bool = Form(False),
     dealership_name: str = Form(""),
+    dealer_id: str = Form(""),
     signers_json: str = Form(
         ...,
         description=SIGNERS_JSON_HELP,
@@ -333,6 +339,7 @@ async def create_and_send_document(
             ip_address=_client_ip(request),
             base_url=_base(request),
             dealership_name=dealership_name.strip() or None,
+            dealer_id=dealer_id.strip() or None,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

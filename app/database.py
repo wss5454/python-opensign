@@ -49,6 +49,8 @@ class Document(Base):
     filename = Column(String(255), nullable=False)
     # Per-marina branding for signature emails (shared WallaceSign server)
     dealership_name = Column(String(255), nullable=True)
+    # System dealer id; routes the signed PDF back to that marina's monitor
+    dealer_id = Column(String(64), nullable=True)
     original_path = Column(String(500), nullable=False)
     signed_path = Column(String(500), nullable=True)
     status = Column(String(50), default="draft", index=True)
@@ -259,6 +261,8 @@ def _migrate_schema() -> None:
         doc_cols = _table_columns(inspector, "documents")
         if doc_cols and "dealership_name" not in doc_cols:
             conn.execute(text("ALTER TABLE documents ADD COLUMN dealership_name VARCHAR(255)"))
+        if doc_cols and "dealer_id" not in doc_cols:
+            conn.execute(text("ALTER TABLE documents ADD COLUMN dealer_id VARCHAR(64)"))
 
     # Ensure newer tables exist (e.g. signer_widgets)
     Base.metadata.create_all(bind=engine)

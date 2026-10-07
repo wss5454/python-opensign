@@ -448,6 +448,7 @@ def create_document(
     file_content: bytes,
     signers: List[dict],
     dealership_name: Optional[str] = None,
+    dealer_id: Optional[str] = None,
 ) -> Document:
     owner = get_or_create_user(db, owner_name, owner_email)
     path = save_upload(filename, file_content)
@@ -458,6 +459,7 @@ def create_document(
         description=description or "",
         filename=Path(filename).name,
         dealership_name=(dealership_name or "").strip() or None,
+        dealer_id=(dealer_id or "").strip() or None,
         original_path=str(path),
         status="draft",
         sequential=sequential,
@@ -641,6 +643,7 @@ def create_and_send_document(
     ip_address: Optional[str] = None,
     base_url: Optional[str] = None,
     dealership_name: Optional[str] = None,
+    dealer_id: Optional[str] = None,
 ) -> Document:
     """Create a document and immediately move it to sent status."""
     doc = create_document(
@@ -654,6 +657,7 @@ def create_and_send_document(
         file_content=file_content,
         signers=signers,
         dealership_name=dealership_name,
+        dealer_id=dealer_id,
     )
     # Reload with signers/widgets for send validation
     doc = (

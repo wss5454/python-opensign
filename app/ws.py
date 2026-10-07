@@ -56,17 +56,25 @@ def _iso(value: Optional[datetime]) -> Optional[str]:
     return value.isoformat()
 
 
-async def emit_document_finished(document) -> None:
-    """Fire when every signer/approver has signed and the document is completed."""
-    payload = {
+def document_finished_payload(document) -> Dict[str, Any]:
+    """JSON body sent when a contract is fully signed."""
+    dealer_id = getattr(document, "dealer_id", None)
+    dealer_id = str(dealer_id).strip() if dealer_id else ""
+    return {
         "event": "document.finished",
         "document_id": document.id,
         "status": document.status,
         "title": document.title,
         "filename": document.filename,
         "public_token": document.public_token,
+        "dealer_id": dealer_id or None,
         "completed_at": _iso(getattr(document, "completed_at", None)),
     }
+
+
+async def emit_document_finished(document) -> None:
+    """Fire when every signer/approver has signed and the document is completed."""
+    payload = document_finished_payload(document)
     logger.info(
         "WebSocket document.finished document_id=%s clients=%s",
         document.id,
@@ -90,6 +98,7 @@ async def websocket_endpoint(websocket: WebSocket):
       "title": "...",
       "filename": "...",
       "public_token": "...",
+      "dealer_id": "101",
       "completed_at": "..."
     }
     ```
