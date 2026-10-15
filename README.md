@@ -105,7 +105,33 @@ Wallace contracts can name AcroForm fields so the PC monitor creates signers and
 | `name_sig1`, `name_companysig1`, … | Optional display name (defaults to the email local-part). |
 | `edit1`, `edit2`, … | Text fields the customer can fill in while signing (insurance, and so on). Other fields stay as Wallace filled them. |
 
-A contract with no `sig*` fields still uses the old “scrape emails from PDF text” fallback. Numbering does not need to be contiguous.
+A contract with no `sig*` fields and no work-order signature label still uses the old “scrape emails from PDF text” fallback. Numbering does not need to be contiguous.
+
+## Service work orders (no form fields)
+
+Service work orders are plain PDFs. They do not use the marina field names (`sig1`, `cEmail`, and so on), and they do not need a special marker character.
+
+Realtime-monitor places the signature like this:
+
+1. On the **last page**, it looks for the text `Customer Signature`. Case and extra spaces do not matter.
+2. It puts one signature box in the empty area just above that label (bottom-left of the page).
+3. The customer's email must be printed as a labeled line anywhere in the PDF, for example `Email: tom@example.com`. `E-mail:` is accepted too. Any other address on the page is ignored, so the dealership's own email is not invited.
+4. If that label cannot be read, the monitor uses a fixed box instead. The built-in box matches the Wallace work-order layout (percent of the page, origin top-left). Override it in `Realtime-monitor/config.yaml`:
+
+```yaml
+work_order:
+  anchor_text: "Customer Signature"
+  email_label: "Email"
+  fallback_box:   # or false, to skip the fixed box
+    x: 0.36
+    y: 83.42
+    w: 57.57
+    h: 4.33
+```
+
+If the label is found but there is no `Email:` line, the file is not sent.
+
+The monitor sends `document_kind=work_order`. The signature email then says the work order is ready for approval, instead of the marina contract / reservation wording.
 
 Uploaded supporting files are saved as `{customerNumber}_{originalName}`. The customer number is the first 12 digits in the contract file name (`00508661111_160908113014WET.pdf` → `005086611111_insurance.jpg`).
 
@@ -125,6 +151,7 @@ When a contract is uploaded and emailed, the monitor appends rows to a CSV file 
 ## Create document (multipart)
 
 - `title`, `description`, `sequential`
+- `document_kind` — optional; `work_order` selects work-order email wording
 - `file` — PDF
 - `signers_json` example:
 

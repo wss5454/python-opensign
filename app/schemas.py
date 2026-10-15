@@ -78,6 +78,7 @@ class DocumentOut(BaseModel):
     document_url: Optional[str] = None
     dealership_name: Optional[str] = None
     dealer_id: Optional[str] = None
+    document_kind: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     completed_at: Optional[datetime] = None

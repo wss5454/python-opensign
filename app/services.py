@@ -35,6 +35,13 @@ def generate_token() -> str:
     return secrets.token_urlsafe(32)
 
 
+def _normalize_document_kind(value: Optional[str]) -> Optional[str]:
+    kind = (value or "").strip().lower()
+    if kind == "work_order":
+        return kind
+    return None
+
+
 # Default signature slot size (% of page). Layout packs left→right, bottom→up.
 WIDGET_SLOT_W = 28.0
 WIDGET_SLOT_H = 10.0
@@ -449,6 +456,7 @@ def create_document(
     signers: List[dict],
     dealership_name: Optional[str] = None,
     dealer_id: Optional[str] = None,
+    document_kind: Optional[str] = None,
 ) -> Document:
     owner = get_or_create_user(db, owner_name, owner_email)
     path = save_upload(filename, file_content)
@@ -460,6 +468,7 @@ def create_document(
         filename=Path(filename).name,
         dealership_name=(dealership_name or "").strip() or None,
         dealer_id=(dealer_id or "").strip() or None,
+        document_kind=_normalize_document_kind(document_kind),
         original_path=str(path),
         status="draft",
         sequential=sequential,
@@ -567,6 +576,7 @@ def email_signature_requests(
                 sign_url=sign_url_for(signer.access_token, base),
                 document_url=doc_url,
                 dealership_name=getattr(document, "dealership_name", None),
+                document_kind=getattr(document, "document_kind", None),
             )
             add_audit(
                 db,
@@ -644,6 +654,7 @@ def create_and_send_document(
     base_url: Optional[str] = None,
     dealership_name: Optional[str] = None,
     dealer_id: Optional[str] = None,
+    document_kind: Optional[str] = None,
 ) -> Document:
     """Create a document and immediately move it to sent status."""
     doc = create_document(
@@ -658,6 +669,7 @@ def create_and_send_document(
         signers=signers,
         dealership_name=dealership_name,
         dealer_id=dealer_id,
+        document_kind=document_kind,
     )
     # Reload with signers/widgets for send validation
     doc = (

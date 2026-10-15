@@ -133,6 +133,68 @@ def _dealership_name(override: Optional[str] = None) -> str:
     return (settings.mail_from_name or "").strip() or "your dealership"
 
 
+def signature_request_copy(
+    *,
+    signer_name: str,
+    sign_url: str,
+    dealership_name: Optional[str] = None,
+    document_kind: Optional[str] = None,
+) -> dict:
+    """Subject and body text for a signature invitation."""
+    first_name = _customer_first_name(signer_name)
+    dealership = _dealership_name(dealership_name)
+    work_order = (document_kind or "").strip().lower() == "work_order"
+    if work_order:
+        subject = "Your work order is ready for approval"
+        intro = (
+            f"Your work order from {dealership} is ready for approval. "
+            "Please review and sign electronically."
+        )
+        questions = (
+            "This link is unique to you — please don't forward this email. "
+            "If you have questions about this work order, contact your "
+            "dealership's office directly."
+        )
+    else:
+        subject = "Your contract is ready for signature"
+        intro = (
+            f"Your contract for {dealership} is ready for review. "
+            "Please review and sign electronically to keep your reservation "
+            "active for the upcoming season."
+        )
+        questions = (
+            "This link is unique to you — please don't forward this email. "
+            "If you have questions about your renewal, contact your "
+            "dealership's office directly."
+        )
+
+    text_body = "\n".join(
+        [
+            f"Hi {first_name},",
+            "",
+            intro,
+            "",
+            "Review & Sign:",
+            sign_url,
+            "",
+            questions,
+            "",
+            "Signing made easy!",
+        ]
+    )
+    return {
+        "subject": subject,
+        "text_body": text_body,
+        "intro": intro,
+        "questions": questions,
+        "is_work_order": work_order,
+        "preheader": subject,
+        "customer_first_name": first_name,
+        "dealership_name": dealership,
+        "sign_url": sign_url,
+    }
+
+
 def send_signature_request(
     *,
     signer_name: str,
@@ -141,37 +203,27 @@ def send_signature_request(
     sign_url: str,
     document_url: Optional[str] = None,
     dealership_name: Optional[str] = None,
+    document_kind: Optional[str] = None,
 ) -> None:
     """Send the Wallace eSign signature invitation email."""
     del document_title, document_url  # kept for API compatibility
 
-    first_name = _customer_first_name(signer_name)
-    dealership = _dealership_name(dealership_name)
-    subject = "Your contract is ready for signature"
-
-    text_body = "\n".join(
-        [
-            f"Hi {first_name},",
-            "",
-            f"Your contract for {dealership} is ready for review. "
-            "Please review and sign electronically to keep your reservation "
-            "active for the upcoming season.",
-            "",
-            "Review & Sign:",
-            sign_url,
-            "",
-            "This link is unique to you — please don't forward this email. "
-            "If you have questions about your renewal, contact your "
-            "dealership's office directly.",
-            "",
-            "Signing made easy!",
-        ]
+    copy = signature_request_copy(
+        signer_name=signer_name,
+        sign_url=sign_url,
+        dealership_name=dealership_name,
+        document_kind=document_kind,
     )
+    subject = copy["subject"]
+    text_body = copy["text_body"]
 
     html_body = _jinja.get_template("signature_request.html").render(
-        customer_first_name=first_name,
-        dealership_name=dealership,
+        customer_first_name=copy["customer_first_name"],
+        dealership_name=copy["dealership_name"],
         sign_url=sign_url,
+        is_work_order=copy["is_work_order"],
+        preheader=copy["preheader"],
+        questions=copy["questions"],
     )
 
     send_email(

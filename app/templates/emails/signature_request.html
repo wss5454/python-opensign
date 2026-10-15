@@ -9,7 +9,7 @@
 
 <!-- Preheader (hidden preview text) -->
 <div style="display:none; max-height:0; overflow:hidden; mso-hide:all;">
-  Your contract is ready for signature.
+  {{ preheader }}
 </div>
 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#eef1f4; padding:24px 0;">
@@ -40,7 +40,11 @@
               Hi {{ customer_first_name }},
             </p>
             <p style="margin:0 0 16px 0; font-size:15px; line-height:22px; color:#1c1c1c;">
+              {% if is_work_order %}
+              Your work order from <strong>{{ dealership_name }}</strong> is ready for approval. Please review and sign electronically.
+              {% else %}
               Your contract for <strong>{{ dealership_name }}</strong> is ready for review. Please review and sign electronically to keep your reservation active for the upcoming season.
+              {% endif %}
             </p>
 
             <!-- CTA Button -->
@@ -55,7 +59,7 @@
             </table>
 
             <p style="margin:0 0 8px 0; font-size:13px; line-height:20px; color:#6b7785;">
-              This link is unique to you — please don't forward this email. If you have questions about your renewal, contact your dealership's office directly.
+              {{ questions }}
             </p>
             <p style="margin:16px 0 0 0; font-size:12px; line-height:18px; color:#9aa5b1; word-break:break-all;">
               Or copy this link:<br />{{ sign_url }}

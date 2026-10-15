@@ -51,6 +51,8 @@ class Document(Base):
     dealership_name = Column(String(255), nullable=True)
     # System dealer id; routes the signed PDF back to that marina's monitor
     dealer_id = Column(String(64), nullable=True)
+    # null/contract, or work_order — selects signature-email wording
+    document_kind = Column(String(32), nullable=True)
     original_path = Column(String(500), nullable=False)
     signed_path = Column(String(500), nullable=True)
     status = Column(String(50), default="draft", index=True)
@@ -263,6 +265,8 @@ def _migrate_schema() -> None:
             conn.execute(text("ALTER TABLE documents ADD COLUMN dealership_name VARCHAR(255)"))
         if doc_cols and "dealer_id" not in doc_cols:
             conn.execute(text("ALTER TABLE documents ADD COLUMN dealer_id VARCHAR(64)"))
+        if doc_cols and "document_kind" not in doc_cols:
+            conn.execute(text("ALTER TABLE documents ADD COLUMN document_kind VARCHAR(32)"))
 
     # Ensure newer tables exist (e.g. signer_widgets)
     Base.metadata.create_all(bind=engine)
