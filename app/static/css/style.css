@@ -732,8 +732,6 @@ body.modal-open { overflow: hidden; }
   .app-shell { grid-template-columns: 1fr; }
   .sidebar { display: none; }
   .dash-actions, .dash-stats, .grid-2, .signer-row { grid-template-columns: 1fr; }
-  .sw-shell { grid-template-columns: 1fr; }
-  .sw-pages, .sw-signers { display: none; }
 }
 
 /* ===== Signing workspace (WallaceSign) ===== */
@@ -1154,4 +1152,11 @@ body.page-api-docs .page-content {
 .api-docs-swagger .swagger-ui .wrapper {
   padding: 0 1rem;
   max-width: none;
+}
+
+/* Phone / narrow-window layout for the signing page. Must stay AFTER the
+   .sw-shell rules above, or the 3-column desktop grid overrides it. */
+@media (max-width: 960px) {
+  .sw-shell { grid-template-columns: 1fr; }
+  .sw-pages, .sw-signers { display: none; }
 }

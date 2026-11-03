@@ -402,12 +402,16 @@ async function renderSigningViewer(root) {
       if (pageNum !== currentPage) pageWrap.hidden = true;
 
       const pageCanvas = document.createElement("canvas");
-      pageCanvas.width = viewport.width;
-      pageCanvas.height = viewport.height;
+      // Draw at the screen's pixel density so text stays sharp on phones;
+      // CSS (.pdf-page > canvas { width: 100% }) keeps it the page's size.
+      const dpr = window.devicePixelRatio || 1;
+      pageCanvas.width = Math.floor(viewport.width * dpr);
+      pageCanvas.height = Math.floor(viewport.height * dpr);
       pageWrap.appendChild(pageCanvas);
       await page.render({
         canvasContext: pageCanvas.getContext("2d"),
         viewport,
+        transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null,
         annotationMode: pdfjsLib.AnnotationMode.ENABLE,
       }).promise;
 
@@ -548,6 +552,14 @@ async function renderSigningViewer(root) {
   }
 
   pdfDoc = await pdfjsLib.getDocument(pdfUrl).promise;
+  // Start at a size that fits the screen (phones), never larger than 1.2x (desktop).
+  {
+    const firstPage = await pdfDoc.getPage(1);
+    const pageWidth = firstPage.getViewport({ scale: 1 }).width;
+    const stage = document.querySelector(".sw-stage-wrap");
+    const room = (stage ? stage.clientWidth : window.innerWidth) - 40; // 20px padding each side
+    if (pageWidth > 0 && room > 0) scale = Math.min(1.2, room / pageWidth);
+  }
   await renderAll();
 
   document.getElementById("zoom-in")?.addEventListener("click", async () => {
